@@ -1,6 +1,6 @@
 ﻿namespace BilleteraWebBack.Models
 {
-    public class Class
+    public class Usuario
     {
     }
 }

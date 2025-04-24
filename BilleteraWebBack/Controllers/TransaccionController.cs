@@ -8,5 +8,6 @@ namespace BilleteraWebBack.Controllers
         {
             return View();
         }
+        public class RealizarTransaccion();
     }
 }
