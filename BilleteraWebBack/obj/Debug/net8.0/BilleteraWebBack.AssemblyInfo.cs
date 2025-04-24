@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BilleteraWebBack")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bf77328084ef95f789a1a4a889fa989471ddb9c8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b63eb01cf84ae9cb335a0d7fa654dae5b27d247d")]
 [assembly: System.Reflection.AssemblyProductAttribute("BilleteraWebBack")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BilleteraWebBack")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
