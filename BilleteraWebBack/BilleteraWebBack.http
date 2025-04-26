@@ -1,6 +1,0 @@
-@BilleteraWebBack_HostAddress = http://localhost:5197
-
-GET {{BilleteraWebBack_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
