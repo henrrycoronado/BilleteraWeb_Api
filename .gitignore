@@ -1,1 +1,66 @@
-*.vs
+# Build results
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio settings
+.vscode/
+.vs/
+*.code-workspace
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Package directories
+**/packages/*
+# NuGet packages
+*.nupkg
+# The project.lock.json file
+project.lock.json
+# Visual Studio 2017+ automatically generated file
+project.assets.json
+# NuGet v3 files
+*.nuget.props
+*.nuget.targets
+
+# Microsoft Azure Web App publish settings
+PublishProfiles/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Secrets and config (manage carefully)
+secrets.json
+appsettings.Development.json
+
+# Entity Framework
+Migrations/
+
+# dotCover
+.idea/
+*.dotCover
+
+# Rider
+.idea/
+*.sln.iml
+
+# Tests and coverage
+TestResults/
+coverage/
+
+# Backup & temp files
+*.bak
+*.tmp
+*.temp
+
+# Others
+*.swp
