@@ -1,3 +1,7 @@
+########################################
+#    .NET & Visual Studio Ignorables   #
+########################################
+
 # Build results
 bin/
 obj/
@@ -17,50 +21,86 @@ obj/
 ScaffoldingReadMe.txt
 
 # Package directories
-**/packages/*
-# NuGet packages
+**/packages/
 *.nupkg
-# The project.lock.json file
 project.lock.json
-# Visual Studio 2017+ automatically generated file
 project.assets.json
-# NuGet v3 files
 *.nuget.props
 *.nuget.targets
-
-# Microsoft Azure Web App publish settings
-PublishProfiles/
 
 # Logs
 *.log
 
-# OS generated files
-.DS_Store
-Thumbs.db
+# Publish profiles
+PublishProfiles/
 
-# Secrets and config (manage carefully)
+# Secrets and config (maneja con cuidado)
+.env
 secrets.json
 appsettings.Development.json
+appsettings.Local.json
+appsettings.*.json
 
-# Entity Framework
-Migrations/
+# Entity Framework Migrations (opcional ignorarlas si las versionas)
+# Migrations/
 
-# dotCover
+# dotCover & Rider
 .idea/
 *.dotCover
-
-# Rider
-.idea/
 *.sln.iml
 
-# Tests and coverage
+# Test results & coverage
 TestResults/
 coverage/
+*.coverage
+*.coveragexml
 
 # Backup & temp files
 *.bak
 *.tmp
 *.temp
-
-# Others
 *.swp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+########################################
+#         Angular Specific             #
+########################################
+
+# Angular output and cache
+**/dist/
+**/out-tsc/
+.angular/
+.angular-cache/
+.nx/
+
+# Node modules
+**/node_modules/
+
+# Environment files (maneja con cuidado)
+**/src/environments/environment*.ts
+
+# npm/yarn logs and lock files (opcional mantener .lock)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE/WebStorm
+*.idea/
+
+########################################
+#       Optional: Global ignore        #
+########################################
+# Configuración de sistema operativo o archivos editoriales
+*.orig
+*.rej
+*.bak
+*.old
+*.tmp
+*.swp
+*.swo
+*.swn
+*.sublime-workspace
+*.sublime-project
