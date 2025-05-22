@@ -1,0 +1,836 @@
+CU1:
+
+sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant RegistroController
+    participant RegistroService
+    participant UsuarioRepository
+    participant SmsService
+    participant LivenessService
+    participant SesionService
+
+    Cliente->>UI: Selecciona "Registrarse"
+    UI->>Cliente: Muestra formulario de registro
+
+    Cliente->>UI: Ingresa número y datos personales
+    UI->>RegistroController: POST /registro(datosCliente)
+
+    RegistroController->>RegistroService: iniciarRegistro(datosCliente)
+
+    RegistroService->>UsuarioRepository: verificarNumeroRegistrado(numero)
+    UsuarioRepository-->>RegistroService: número no registrado
+
+    RegistroService->>SmsService: enviarOTP(numero)
+    SmsService-->>RegistroService: OTP enviado
+
+    RegistroService-->>RegistroController: Solicitar OTP al cliente
+    RegistroController->>UI: Solicitar código OTP
+
+    Cliente->>UI: Ingresa OTP recibido
+    UI->>RegistroController: POST /validarOTP(otp)
+
+    RegistroController->>RegistroService: validarOTP(otp)
+    RegistroService-->>RegistroController: OTP válido
+
+    RegistroController->>LivenessService: iniciarCaptura()
+    Cliente->>LivenessService: Realiza acción (parpadeo, etc.)
+    LivenessService-->>RegistroController: Validación OK
+
+    RegistroController->>UI: Solicitar PIN
+    Cliente->>UI: Ingresa y confirma PIN
+    UI->>RegistroController: POST /establecerPIN(pin)
+
+    RegistroController->>RegistroService: validarYCrearCuenta(pin)
+
+    RegistroService->>UsuarioRepository: crearUsuario(datos, pinCifrado)
+    UsuarioRepository-->>RegistroService: Usuario registrado
+
+    RegistroService->>SesionService: generarSesion(usuarioId)
+    SesionService-->>RegistroService: Token de sesión
+
+    RegistroService-->>RegistroController: Registro exitoso
+    RegistroController->>UI: Mostrar "Registro exitoso" y redirigir al dashboard
+
+
+
+CU2:
+
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant VerificacionController
+    participant VerificacionService
+    participant UsuarioRepository
+    participant SmsService
+
+    Cliente->>UI: Solicita verificación de número
+    UI->>VerificacionController: POST /verificarNumero(numero)
+
+    VerificacionController->>VerificacionService: iniciarVerificacion(numero)
+
+    VerificacionService->>UsuarioRepository: validarFormatoYExistencia(numero)
+    UsuarioRepository-->>VerificacionService: OK
+
+    VerificacionService->>SmsService: enviarOTP(numero)
+    SmsService-->>VerificacionService: OTP enviado
+
+    VerificacionService-->>VerificacionController: Solicitar ingreso de OTP
+    VerificacionController->>UI: Solicitar código OTP
+
+    Cliente->>UI: Ingresa OTP recibido
+    UI->>VerificacionController: POST /validarOTP(otp)
+
+    VerificacionController->>VerificacionService: validarOTP(otp)
+    VerificacionService->>UsuarioRepository: marcarNumeroVerificado(numero)
+    UsuarioRepository-->>VerificacionService: Número marcado como verificado
+
+    VerificacionService-->>VerificacionController: Verificación exitosa
+    VerificacionController->>UI: Mostrar "Número verificado con éxito"
+
+CU3:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant LoginController
+    participant LoginService
+    participant UsuarioRepository
+    participant SesionService
+
+    Cliente->>UI: Selecciona "Iniciar sesión"
+    UI->>Cliente: Muestra formulario de número y PIN
+
+    Cliente->>UI: Ingresa número y PIN
+    UI->>LoginController: POST /login(numero, pin)
+
+    LoginController->>LoginService: autenticar(numero, pin)
+
+    LoginService->>UsuarioRepository: buscarPorNumero(numero)
+    UsuarioRepository-->>LoginService: Usuario encontrado o null
+
+    alt Usuario no encontrado
+        LoginService-->>LoginController: error "Número incorrecto"
+        LoginController->>UI: Mostrar mensaje de error
+    else Usuario encontrado
+        LoginService->>LoginService: validarFormato(pin)
+        alt PIN con formato inválido
+            LoginService-->>LoginController: error "Formato de PIN inválido"
+            LoginController->>UI: Mostrar mensaje de error
+        else
+            LoginService->>LoginService: verificarPIN(pinIngresado, pinHasheado)
+            alt PIN incorrecto
+                LoginService->>LoginService: incrementarIntentoFallido(numero)
+                alt Excede 5 intentos
+                    LoginService->>UsuarioRepository: bloquearTemporalmente(numero)
+                    LoginService-->>LoginController: error "Cuenta bloqueada 15 min"
+                    LoginController->>UI: Mostrar mensaje de bloqueo
+                else Intentos disponibles
+                    LoginService-->>LoginController: error "PIN incorrecto"
+                    LoginController->>UI: Mostrar mensaje de error
+                end
+            else PIN correcto
+                LoginService->>SesionService: generarSesion(usuarioId)
+                SesionService-->>LoginService: Token de sesión
+                LoginService-->>LoginController: Sesión iniciada
+                LoginController->>UI: Redirigir al dashboard con mensaje "Bienvenido de nuevo"
+            end
+        end
+    end
+
+CU4:
+sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant BiometriaController
+    participant BiometriaService
+    participant UsuarioRepository
+    participant SesionService
+    participant Dispositivo as Sensor Biométrico (SO)
+
+    Cliente->>UI: Selecciona "Iniciar sesión con biometría"
+    UI->>Dispositivo: Solicita autenticación biométrica
+
+    Dispositivo->>Cliente: Solicita huella o rostro
+    Cliente->>Dispositivo: Proporciona biometría
+    Dispositivo-->>UI: Resultado: Autenticación Exitosa o Fallida
+
+    alt Biometría fallida
+        UI->>Cliente: Mostrar mensaje "Error de autenticación biométrica"
+    else Biometría exitosa
+        UI->>BiometriaController: POST /loginBiometrico(tokenBiometrico)
+
+        BiometriaController->>BiometriaService: autenticarPorBiometria(tokenBiometrico)
+
+        BiometriaService->>UsuarioRepository: obtenerUsuarioDesdeBiometria(tokenBiometrico)
+        UsuarioRepository-->>BiometriaService: Datos del usuario
+
+        BiometriaService->>SesionService: generarSesion(usuarioId)
+        SesionService-->>BiometriaService: Token de sesión
+
+        BiometriaService-->>BiometriaController: Sesión iniciada
+        BiometriaController->>UI: Redirigir al dashboard con mensaje "Bienvenido de nuevo"
+    end
+
+CU5:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant RecuperacionController
+    participant RecuperacionService
+    participant UsuarioRepository
+    participant CanalRecuperacionService
+    participant SesionService
+
+    Cliente->>UI: Selecciona "Olvidé mi PIN"
+    UI->>RecuperacionController: GET /recuperarPin
+
+    RecuperacionController->>UI: Mostrar opciones de canal (SMS o Email)
+    Cliente->>UI: Selecciona canal y confirma
+    UI->>RecuperacionController: POST /enviarCodigo(numero o email)
+
+    RecuperacionController->>RecuperacionService: generarYEnviarCodigo(destino)
+    RecuperacionService->>UsuarioRepository: verificarUsuarioPorContacto(destino)
+    UsuarioRepository-->>RecuperacionService: Usuario encontrado
+
+    RecuperacionService->>CanalRecuperacionService: enviarCodigo(destino)
+    CanalRecuperacionService-->>RecuperacionService: Código enviado
+
+    RecuperacionService-->>RecuperacionController: Solicitar código al cliente
+    RecuperacionController->>UI: Solicitar ingreso de código
+
+    Cliente->>UI: Ingresa código recibido
+    UI->>RecuperacionController: POST /validarCodigo(codigo)
+
+    RecuperacionController->>RecuperacionService: validarCodigo(codigo)
+    alt Código válido
+        RecuperacionService-->>RecuperacionController: Solicitar nuevo PIN
+        RecuperacionController->>UI: Solicitar nuevo PIN (y confirmación)
+
+        Cliente->>UI: Ingresa nuevo PIN
+        UI->>RecuperacionController: POST /actualizarPin(pin)
+
+        RecuperacionController->>RecuperacionService: actualizarPIN(pin)
+        RecuperacionService->>UsuarioRepository: guardarNuevoPIN(pinHasheado)
+        UsuarioRepository-->>RecuperacionService: Confirmación de actualización
+
+        RecuperacionService-->>RecuperacionController: PIN actualizado con éxito
+        RecuperacionController->>UI: Mostrar "PIN restablecido con éxito" y redirigir a inicio de sesión
+    else Código incorrecto o expirado
+        RecuperacionService-->>RecuperacionController: error "Código inválido"
+        RecuperacionController->>UI: Mostrar mensaje de error
+    end
+
+CU6:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant LogoutController
+    participant SesionService
+    participant SesionRepository
+
+    Cliente->>UI: Selecciona "Cerrar sesión"
+    UI->>LogoutController: POST /logout(tokenSesion)
+
+    LogoutController->>SesionService: cerrarSesion(tokenSesion)
+
+    SesionService->>SesionRepository: invalidarToken(tokenSesion)
+    SesionRepository-->>SesionService: Token eliminado
+
+    SesionService-->>LogoutController: Sesión cerrada exitosamente
+    LogoutController->>UI: Mostrar "Sesión cerrada con éxito" y redirigir a login
+
+CU7:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant PerfilController
+    participant PerfilService
+    participant UsuarioRepository
+    participant NotificacionService
+
+    Cliente->>UI: Accede a sección "Perfil"
+    UI->>PerfilController: GET /perfil
+    PerfilController->>UsuarioRepository: obtenerDatosPerfil(usuarioId)
+    UsuarioRepository-->>PerfilController: Datos actuales del cliente
+    PerfilController->>UI: Mostrar formulario con datos actuales
+
+    Cliente->>UI: Modifica nombre, correo o imagen
+    UI->>PerfilController: POST /actualizarPerfil(datosActualizados)
+
+    PerfilController->>PerfilService: actualizarPerfil(usuarioId, datosActualizados)
+
+    PerfilService->>PerfilService: validarFormatoCorreo(datosActualizados.correo)
+    PerfilService->>PerfilService: validarTamañoImagen(datosActualizados.imagen)
+
+    PerfilService->>UsuarioRepository: actualizarDatos(usuarioId, datosActualizados)
+    UsuarioRepository-->>PerfilService: Confirmación de actualización
+
+    PerfilService->>NotificacionService: enviarNotificacion(usuarioId, "Tu perfil fue actualizado")
+    NotificacionService-->>PerfilService: OK
+
+    PerfilService-->>PerfilController: Éxito
+    PerfilController->>UI: Mostrar "Perfil actualizado con éxito"
+
+CU8:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant PinController
+    participant PinService
+    participant UsuarioRepository
+    participant SesionService
+
+    Cliente->>UI: Accede a "Ajustes" > "Cambiar PIN"
+    UI->>PinController: GET /solicitarPinActual
+    PinController->>UI: Solicitar PIN actual
+
+    Cliente->>UI: Ingresa PIN actual
+    UI->>PinController: POST /validarPinActual(pinActual)
+
+    PinController->>PinService: validarPinActual(usuarioId, pinActual)
+    PinService->>UsuarioRepository: obtenerPinCifrado(usuarioId)
+    UsuarioRepository-->>PinService: pinHasheado
+
+    PinService->>PinService: verificarPIN(pinActual, pinHasheado)
+    alt PIN incorrecto
+        PinService->>PinService: incrementarIntentoFallido(usuarioId)
+        alt Excede 3 intentos
+            PinService->>SesionService: cerrarSesion(usuarioId)
+            PinService-->>PinController: error "PIN incorrecto. Sesión cerrada"
+            PinController->>UI: Mostrar mensaje de cierre de sesión
+        else
+            PinService-->>PinController: error "PIN incorrecto"
+            PinController->>UI: Mostrar error y permitir reintento
+        end
+    else PIN correcto
+        PinService-->>PinController: Solicitar nuevo PIN
+        PinController->>UI: Solicitar ingreso y confirmación de nuevo PIN
+
+        Cliente->>UI: Ingresa nuevo PIN y confirmación
+        UI->>PinController: POST /actualizarPin(nuevoPIN)
+
+        PinController->>PinService: actualizarPIN(usuarioId, nuevoPIN)
+        PinService->>PinService: validarFormatoPIN(nuevoPIN)
+        PinService->>UsuarioRepository: guardarNuevoPIN(usuarioId, hash(nuevoPIN))
+        UsuarioRepository-->>PinService: Confirmación
+
+        PinService-->>PinController: PIN actualizado con éxito
+        PinController->>UI: Mostrar "PIN actualizado con éxito"
+    end
+
+CU09
+	sequenceDiagram
+    participant Sistema as Sistema Interno (evento disparador)
+    participant NotificacionService
+    participant PushServer
+    participant NotificacionRepository
+    participant UI as Interface Móvil
+    actor Cliente
+
+    Sistema->>NotificacionService: generarNotificacion(usuarioId, tipoEvento, datos)
+
+    NotificacionService->>NotificacionService: componerMensaje(tipoEvento, datos)
+
+    NotificacionService->>PushServer: enviarPush(usuarioId, mensaje)
+    alt Push exitoso
+        PushServer-->>NotificacionService: Entregado
+
+        NotificacionService->>NotificacionRepository: registrarNotificacion(usuarioId, mensaje)
+        NotificacionRepository-->>NotificacionService: Confirmación
+
+        Note right of UI: El SO muestra la notificación al cliente
+
+        Cliente->>UI: Visualiza notificación en pantalla
+        UI->>NotificacionRepository: GET /alertas
+        NotificacionRepository-->>UI: Lista de últimas notificaciones
+    else Fallo en envío
+        PushServer-->>NotificacionService: Error al entregar
+        NotificacionService->>NotificacionRepository: registrarComoFallida(usuarioId, mensaje)
+        NotificacionRepository-->>NotificacionService: Confirmación
+        Note right of UI: La notificación se mostrará al iniciar sesión
+    end
+
+CU10:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant SesionController
+    participant SesionService
+    participant SesionRepository
+
+    Cliente->>UI: Accede a "Seguridad" > "Sesiones Activas"
+    UI->>SesionController: GET /listarSesiones
+    SesionController->>SesionService: obtenerSesionesActivas(usuarioId)
+    SesionService->>SesionRepository: listarSesiones(usuarioId)
+    SesionRepository-->>SesionService: Lista de sesiones activas
+    SesionService-->>SesionController: Sesiones encontradas
+    SesionController->>UI: Mostrar lista de dispositivos y fechas
+
+    Cliente->>UI: Selecciona sesiones a cerrar y confirma
+    UI->>SesionController: POST /cerrarSesiones(sesionesSeleccionadas)
+
+    SesionController->>SesionService: cerrarSesiones(usuarioId, sesionesSeleccionadas)
+
+    SesionService->>SesionRepository: invalidarTokens(sesionesSeleccionadas)
+    SesionRepository-->>SesionService: Tokens invalidados
+
+    SesionService->>SesionRepository: registrarRevocacion(usuarioId, sesionesRevocadas)
+    SesionRepository-->>SesionService: Confirmación
+
+    SesionService-->>SesionController: Éxito
+    SesionController->>UI: Mostrar "Sesiones cerradas con éxito" y actualizar lista
+
+CU11:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant SaldoController
+    participant SaldoService
+    participant CuentaRepository
+
+    Cliente->>UI: Accede a "Mi saldo"
+    UI->>SaldoController: GET /saldo
+
+    SaldoController->>SaldoService: obtenerSaldo(usuarioId)
+
+    SaldoService->>CuentaRepository: consultarSaldoDisponible(usuarioId)
+    CuentaRepository-->>SaldoService: Saldo actual
+
+    SaldoService-->>SaldoController: Monto disponible
+    SaldoController->>UI: Mostrar saldo al cliente
+
+CU12:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant TransferenciaController
+    participant TransferenciaService
+    participant UsuarioRepository
+    participant CuentaRepository
+    participant TransaccionRepository
+    participant NotificacionService
+
+    Cliente->>UI: Accede a "Enviar dinero"
+    UI->>Cliente: Muestra formulario de transferencia
+
+    Cliente->>UI: Ingresa número de contacto y monto
+    UI->>TransferenciaController: POST /transferir(numero, monto)
+
+    TransferenciaController->>TransferenciaService: procesarTransferencia(usuarioOrigenId, numeroDestino, monto)
+
+    TransferenciaService->>UsuarioRepository: buscarUsuarioPorNumero(numeroDestino)
+    UsuarioRepository-->>TransferenciaService: Usuario encontrado o null
+
+    alt Usuario no encontrado
+        TransferenciaService-->>TransferenciaController: error "Número no registrado"
+        TransferenciaController->>UI: Mostrar mensaje de error
+    else Usuario encontrado
+        TransferenciaService->>CuentaRepository: obtenerSaldo(usuarioOrigenId)
+        CuentaRepository-->>TransferenciaService: Saldo disponible
+
+        alt Saldo insuficiente
+            TransferenciaService-->>TransferenciaController: error "Saldo insuficiente"
+            TransferenciaController->>UI: Mostrar mensaje de error
+        else
+            TransferenciaService->>CuentaRepository: debitar(usuarioOrigenId, monto)
+            TransferenciaService->>CuentaRepository: acreditar(usuarioDestinoId, monto)
+
+            TransferenciaService->>TransaccionRepository: registrarTransaccion(usuarioOrigenId, usuarioDestinoId, monto, timestamp)
+            
+            TransferenciaService->>NotificacionService: notificarTransferencia(usuarioOrigenId, usuarioDestinoId, monto)
+            NotificacionService-->>TransferenciaService: Notificaciones enviadas
+
+            TransferenciaService-->>TransferenciaController: OK
+            TransferenciaController->>UI: Mostrar mensaje "Transferencia exitosa"
+        end
+    end
+
+CU13:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant SolicitudController
+    participant SolicitudService
+    participant UsuarioRepository
+    participant SolicitudRepository
+    participant NotificacionService
+
+    Cliente->>UI: Accede a "Solicitar dinero"
+    UI->>Cliente: Muestra formulario (número, monto, nota)
+
+    Cliente->>UI: Ingresa datos y envía solicitud
+    UI->>SolicitudController: POST /solicitarDinero(numeroDestino, monto, nota)
+
+    SolicitudController->>SolicitudService: crearSolicitud(usuarioOrigenId, numeroDestino, monto, nota)
+
+    SolicitudService->>UsuarioRepository: buscarUsuarioPorNumero(numeroDestino)
+    UsuarioRepository-->>SolicitudService: Usuario encontrado o null
+
+    alt Usuario no encontrado
+        SolicitudService-->>SolicitudController: error "Usuario no registrado"
+        SolicitudController->>UI: Mostrar mensaje de error
+    else Usuario encontrado
+        SolicitudService->>SolicitudService: validarMonto(monto)
+        SolicitudService->>SolicitudRepository: registrarSolicitud(usuarioOrigenId, usuarioDestinoId, monto, nota, timestamp)
+        SolicitudRepository-->>SolicitudService: Confirmación
+
+        SolicitudService->>NotificacionService: notificarSolicitud(usuarioDestinoId, monto, nota)
+        NotificacionService-->>SolicitudService: Notificación enviada
+
+        SolicitudService-->>SolicitudController: Solicitud registrada con éxito
+        SolicitudController->>UI: Mostrar "Solicitud enviada"
+    end
+
+CU14:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant FacturaController
+    participant FacturaService
+    participant ProveedorService
+    participant CuentaRepository
+    participant PagoRepository
+    participant NotificacionService
+
+    Cliente->>UI: Accede a "Pagar servicios"
+    UI->>FacturaController: GET /proveedores
+    FacturaController->>ProveedorService: listarProveedores()
+    ProveedorService-->>FacturaController: Lista de proveedores disponibles
+    FacturaController->>UI: Mostrar lista
+
+    Cliente->>UI: Selecciona proveedor e ingresa referencia
+    UI->>FacturaController: POST /consultarFactura(proveedorId, referencia)
+
+    FacturaController->>FacturaService: consultarFactura(proveedorId, referencia)
+    FacturaService->>ProveedorService: obtenerMonto(proveedorId, referencia)
+    ProveedorService-->>FacturaService: Monto a pagar
+
+    FacturaService-->>FacturaController: Monto consultado
+    FacturaController->>UI: Mostrar monto a pagar y solicitar confirmación
+
+    Cliente->>UI: Confirma pago
+    UI->>FacturaController: POST /pagarFactura(proveedorId, referencia, monto)
+
+    FacturaController->>FacturaService: procesarPago(usuarioId, proveedorId, referencia, monto)
+
+    FacturaService->>CuentaRepository: obtenerSaldo(usuarioId)
+    CuentaRepository-->>FacturaService: Saldo disponible
+
+    alt Fondos insuficientes
+        FacturaService-->>FacturaController: error "Saldo insuficiente"
+        FacturaController->>UI: Mostrar mensaje de error
+    else
+        FacturaService->>CuentaRepository: debitar(usuarioId, monto)
+        FacturaService->>PagoRepository: registrarPago(usuarioId, proveedorId, referencia, monto, timestamp)
+        PagoRepository-->>FacturaService: Confirmación
+
+        FacturaService->>NotificacionService: notificarPago(usuarioId, proveedorId, monto)
+        NotificacionService-->>FacturaService: OK
+
+        FacturaService-->>FacturaController: Pago exitoso con comprobante
+        FacturaController->>UI: Mostrar comprobante y mensaje "Pago exitoso"
+    end
+
+CU15:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant MetodoPagoController
+    participant MetodoPagoService
+    participant ProveedorFinancieroService
+    participant MetodoPagoRepository
+
+    Cliente->>UI: Accede a "Métodos de Pago"
+    UI->>MetodoPagoController: GET /metodosPago
+    MetodoPagoController->>MetodoPagoRepository: listarMetodos(usuarioId)
+    MetodoPagoRepository-->>MetodoPagoController: Métodos actuales
+    MetodoPagoController->>UI: Mostrar lista y opción "Agregar nuevo"
+
+    Cliente->>UI: Selecciona "Agregar tarjeta/cuenta" e ingresa datos
+    UI->>MetodoPagoController: POST /agregarMetodo(datos)
+
+    MetodoPagoController->>MetodoPagoService: registrarMetodo(usuarioId, datos)
+
+    MetodoPagoService->>MetodoPagoService: validarFormato(datos)
+    MetodoPagoService->>ProveedorFinancieroService: validarConProveedor(datos)
+    
+    alt Datos inválidos
+        MetodoPagoService-->>MetodoPagoController: error "Datos inválidos"
+        MetodoPagoController->>UI: Mostrar mensaje de error
+    else
+        alt Rechazo del proveedor
+            ProveedorFinancieroService-->>MetodoPagoService: rechazo del banco
+            MetodoPagoService-->>MetodoPagoController: error "Rechazado por banco"
+            MetodoPagoController->>UI: Mostrar mensaje de rechazo
+        else Validación exitosa
+            ProveedorFinancieroService-->>MetodoPagoService: validado
+            MetodoPagoService->>MetodoPagoRepository: guardarMetodoCifrado(usuarioId, datosCifrados)
+            MetodoPagoRepository-->>MetodoPagoService: Confirmación
+
+            MetodoPagoService-->>MetodoPagoController: Registro exitoso
+            MetodoPagoController->>UI: Mostrar "Método registrado con éxito"
+        end
+    end
+
+
+
+CU16:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant HistorialController
+    participant HistorialService
+    participant TransaccionRepository
+
+    Cliente->>UI: Accede a "Historial de transacciones"
+    UI->>HistorialController: GET /historial
+
+    HistorialController->>HistorialService: obtenerHistorial(usuarioId)
+
+    HistorialService->>TransaccionRepository: listarTransacciones(usuarioId)
+    TransaccionRepository-->>HistorialService: Lista de transacciones ordenadas por fecha
+
+    HistorialService-->>HistorialController: Transacciones obtenidas
+    HistorialController->>UI: Mostrar historial al cliente
+
+
+
+CU17:
+	
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant FiltroTransaccionesController
+    participant FiltroTransaccionesService
+    participant TransaccionRepository
+
+    Cliente->>UI: Accede a "Historial de transacciones"
+    UI->>FiltroTransaccionesController: GET /filtrosDisponibles
+    FiltroTransaccionesController->>UI: Mostrar opciones de filtro (fecha, tipo, monto)
+
+    Cliente->>UI: Selecciona criterios (p. ej. tipo: "Pago", fecha: "01/04 al 30/04")
+    UI->>FiltroTransaccionesController: POST /buscarTransacciones(filtros)
+
+    FiltroTransaccionesController->>FiltroTransaccionesService: buscarTransacciones(usuarioId, filtros)
+
+    FiltroTransaccionesService->>TransaccionRepository: consultarConFiltros(usuarioId, filtros)
+    TransaccionRepository-->>FiltroTransaccionesService: Resultados filtrados
+
+    FiltroTransaccionesService-->>FiltroTransaccionesController: Transacciones encontradas
+    FiltroTransaccionesController->>UI: Mostrar resultados al cliente
+
+
+CU18:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant ExportacionController
+    participant ExportacionService
+    participant TransaccionRepository
+    participant ArchivoService
+
+    Cliente->>UI: Accede al historial
+    Cliente->>UI: Selecciona "Exportar historial"
+    UI->>ExportacionController: POST /exportarHistorial(formato)
+
+    ExportacionController->>ExportacionService: generarArchivoExportacion(usuarioId, formato)
+
+    ExportacionService->>TransaccionRepository: obtenerHistorialCompleto(usuarioId)
+    TransaccionRepository-->>ExportacionService: Lista de transacciones
+
+    ExportacionService->>ArchivoService: generarArchivo(formato, datos, estilo)
+    ArchivoService-->>ExportacionService: Archivo generado (URL o ID temporal)
+
+    ExportacionService-->>ExportacionController: Archivo disponible
+    ExportacionController->>UI: Ofrecer descarga al cliente (enlace o botón)
+
+
+CU19:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant DisputaController
+    participant DisputaService
+    participant TransaccionRepository
+    participant DisputaRepository
+    participant NotificacionService
+
+    Cliente->>UI: Accede a historial y selecciona una transacción
+    UI->>DisputaController: GET /disputarTransaccion/{idTransaccion}
+
+    DisputaController->>TransaccionRepository: verificarTransaccionDisputable(idTransaccion, usuarioId)
+    TransaccionRepository-->>DisputaController: Transacción válida o no disputable
+
+    alt Transacción no disputable
+        DisputaController->>UI: Mostrar mensaje "Esta operación no puede ser disputada"
+    else
+        DisputaController->>UI: Mostrar formulario de disputa
+        Cliente->>UI: Ingresa motivo o adjunta evidencia
+        UI->>DisputaController: POST /registrarDisputa(idTransaccion, motivo)
+
+        DisputaController->>DisputaService: registrarDisputa(usuarioId, idTransaccion, motivo)
+        DisputaService->>DisputaRepository: guardarDisputa(usuarioId, idTransaccion, motivo, timestamp)
+        DisputaRepository-->>DisputaService: Confirmación
+
+        DisputaService->>NotificacionService: notificarInicioInvestigacion(usuarioId, idTransaccion)
+        NotificacionService-->>DisputaService: OK
+
+        DisputaService-->>DisputaController: Disputa registrada
+        DisputaController->>UI: Mostrar "La investigación ha comenzado"
+    end
+
+CU20:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant ServiciosController
+    participant ServiciosService
+    participant CatalogoServiciosRepository
+    participant NotificacionService
+
+    Cliente->>UI: Accede a sección "Servicios"
+    UI->>ServiciosController: GET /listarServicios
+
+    ServiciosController->>ServiciosService: obtenerServiciosDisponibles(usuarioId)
+    ServiciosService->>CatalogoServiciosRepository: consultarServiciosActivosPorRegion(usuarioId)
+    CatalogoServiciosRepository-->>ServiciosService: lista de servicios activos
+
+    alt Servicios cargados correctamente
+        ServiciosService-->>ServiciosController: lista de servicios filtrada
+        ServiciosController->>UI: Mostrar lista de servicios (nombre, categoría, ícono)
+        Cliente->>UI: Explora detalles de un servicio
+        UI->>ServiciosController: GET /detalleServicio/{idServicio}
+        ServiciosController->>ServiciosService: obtenerDetalleServicio(idServicio)
+        ServiciosService->>CatalogoServiciosRepository: consultarDetalleServicio(idServicio)
+        CatalogoServiciosRepository-->>ServiciosService: detalle del servicio
+        ServiciosService-->>ServiciosController: detalle del servicio
+        ServiciosController->>UI: Mostrar detalle del servicio
+    else Error al cargar catálogo
+        ServiciosController->>UI: Mostrar mensaje "No se pudieron cargar los servicios. Intenta más tarde"
+    end
+
+CU21:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant ServiciosController
+    participant ServiciosService
+    participant ContratosRepository
+    participant NotificacionService
+
+    Cliente->>UI: Accede al detalle del servicio
+    UI->>ServiciosController: GET /detalleServicio/{idServicio}
+
+    ServiciosController->>ServiciosService: obtenerDetalleServicio(idServicio)
+    ServiciosService->>ContratosRepository: verificarServicioContratado(usuarioId, idServicio)
+    ContratosRepository-->>ServiciosService: resultado (contratado/no contratado)
+    ServiciosService-->>ServiciosController: detalle servicio + estado contratación
+    ServiciosController->>UI: Mostrar detalle y estado
+
+    Cliente->>UI: Selecciona "Activar servicio"
+    UI->>ServiciosController: POST /activarServicio(idServicio)
+
+    ServiciosController->>ServiciosService: activarServicio(usuarioId, idServicio)
+    ServiciosService->>ContratosRepository: verificarServicioContratado(usuarioId, idServicio)
+    alt Servicio ya contratado
+        ServiciosService-->>ServiciosController: error "Servicio ya activo"
+        ServiciosController->>UI: Mostrar mensaje "Ya tienes este servicio activo"
+    else Servicio no contratado
+        ServiciosService->>UI: solicitarConfirmacionTnC()  %% para servicios que requieren aceptación de términos
+        UI->>Cliente: Mostrar términos y condiciones
+        Cliente->>UI: Acepta términos y condiciones (si aplica)
+        UI->>ServiciosController: Confirmación activación
+
+        ServiciosController->>ServiciosService: confirmarActivacion(usuarioId, idServicio)
+        ServiciosService->>ContratosRepository: registrarActivacion(usuarioId, idServicio, timestamp)
+        alt Registro exitoso
+            ServiciosService->>NotificacionService: enviarConfirmacionActivacion(usuarioId, idServicio)
+            NotificacionService-->>ServiciosService: OK
+            ServiciosService-->>ServiciosController: activación exitosa
+            ServiciosController->>UI: Mostrar mensaje "Servicio activado con éxito"
+        else Error en registro
+            ServiciosService-->>ServiciosController: error "No se pudo activar el servicio"
+            ServiciosController->>UI: Mostrar mensaje "No se pudo activar el servicio, inténtalo más tarde"
+        end
+    end
+
+CU22:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant SuscripcionesController
+    participant SuscripcionesService
+    participant SuscripcionesRepository
+    participant NotificacionService
+
+    Cliente->>UI: Accede a "Mis servicios"
+    UI->>SuscripcionesController: GET /listarSuscripciones(usuarioId)
+
+    SuscripcionesController->>SuscripcionesService: obtenerSuscripciones(usuarioId)
+    SuscripcionesService->>SuscripcionesRepository: consultarSuscripcionesActivas(usuarioId)
+    SuscripcionesRepository-->>SuscripcionesService: lista de suscripciones con próximas fechas de facturación
+    SuscripcionesService-->>SuscripcionesController: lista de suscripciones
+    SuscripcionesController->>UI: Mostrar suscripciones y próximas fechas
+
+    Cliente->>UI: Selecciona suscripción activa
+    UI->>SuscripcionesController: GET /detalleSuscripcion/{idSuscripcion}
+
+    SuscripcionesController->>SuscripcionesService: obtenerDetalleSuscripcion(idSuscripcion)
+    SuscripcionesService->>SuscripcionesRepository: consultarDetalle(idSuscripcion)
+    SuscripcionesRepository-->>SuscripcionesService: detalle suscripción
+    SuscripcionesService-->>SuscripcionesController: detalle suscripción
+    SuscripcionesController->>UI: Mostrar detalle suscripción
+
+    Cliente->>UI: Configura renovación automática o cancela suscripción
+    UI->>SuscripcionesController: POST /actualizarSuscripcion(idSuscripcion, nuevaConfig)
+
+    SuscripcionesController->>SuscripcionesService: actualizarSuscripcion(idSuscripcion, nuevaConfig)
+    SuscripcionesService->>SuscripcionesRepository: verificarCancelable(idSuscripcion)
+    alt Servicio no cancelable (y cliente intenta cancelar)
+        SuscripcionesService-->>SuscripcionesController: error "No permite cancelación anticipada"
+        SuscripcionesController->>UI: Mostrar mensaje "Este servicio no permite cancelación anticipada"
+    else Servicio cancelable o solo cambio renovación automática
+        SuscripcionesService->>SuscripcionesRepository: guardarConfiguracion(idSuscripcion, nuevaConfig, timestamp)
+        alt Guardado exitoso
+            SuscripcionesService->>NotificacionService: notificarCambioSuscripcion(usuarioId, idSuscripcion, nuevaConfig)
+            NotificacionService-->>SuscripcionesService: OK
+            SuscripcionesService-->>SuscripcionesController: confirmación éxito
+            SuscripcionesController->>UI: Mostrar mensaje "Suscripción actualizada correctamente"
+        else Error guardando
+            SuscripcionesService-->>SuscripcionesController: error "No se pudo aplicar el cambio"
+            SuscripcionesController->>UI: Mostrar mensaje "Error al actualizar suscripción, intente más tarde"
+        end
+    end
+
+
+CU23:
+	sequenceDiagram
+    actor Cliente
+    participant UI as Interface Móvil
+    participant ServiciosController
+    participant ServiciosService
+    participant CatalogoServiciosRepository
+
+    Cliente->>UI: Accede al listado de servicios
+    UI->>ServiciosController: GET /listarServicios
+
+    ServiciosController->>ServiciosService: obtenerServiciosDisponibles(usuarioId)
+    ServiciosService->>CatalogoServiciosRepository: consultarServiciosActivos(usuarioId)
+    CatalogoServiciosRepository-->>ServiciosService: lista de servicios
+    ServiciosService-->>ServiciosController: lista de servicios
+    ServiciosController->>UI: Mostrar lista de servicios
+
+    Cliente->>UI: Selecciona un servicio específico
+    UI->>ServiciosController: GET /detalleServicio/{idServicio}
+
+    ServiciosController->>ServiciosService: obtenerDetalleServicio(idServicio)
+    ServiciosService->>CatalogoServiciosRepository: consultarDetalleServicio(idServicio)
+    alt Detalle disponible
+        CatalogoServiciosRepository-->>ServiciosService: detalle del servicio (costo, periodo, condiciones, impuestos)
+        ServiciosService-->>ServiciosController: detalle del servicio
+        ServiciosController->>UI: Mostrar detalle completo del servicio
+    else Detalle no disponible
+        ServiciosController->>UI: Mostrar mensaje "No se encontró información detallada de este servicio"
+    end
+
+	

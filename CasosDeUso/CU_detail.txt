@@ -1,0 +1,1438 @@
+CU-01: Registro de Cuenta
+
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Servicio de SMS, Módulo de Liveness Detection, Base de Datos de Usuarios
+
+Descripción:
+
+Permite al cliente crear una nueva cuenta en la billetera móvil, verificando su número de teléfono, validando su identidad (liveness) y estableciendo un PIN seguro.
+
+Precondiciones:
+
+El cliente NO debe tener una cuenta activa con ese número de teléfono
+
+El dispositivo móvil cuenta con conexión a Internet y permiso para usar cámara
+
+El servicio de envío de SMS está operativo
+
+Postcondiciones:
+
+Exitosa: Se crea un nuevo registro de usuario en la base de datos con estado “Activo” y PIN asociado; el cliente queda autenticado y redirigido al dashboard
+
+Abortada: No se crea cuenta; el cliente recibe mensaje de error y puede reintentar el flujo desde el inicio
+
+Flujo Principal:
+
+Inicio: El cliente selecciona “Registrarse” en la pantalla de bienvenida
+
+Ingreso de datos básicos: El sistema muestra un formulario para número de teléfono y datos personales (nombre, apellido, correo opcional). El cliente completa y confirma
+
+Generación y envío de OTP: El sistema verifica formato del número y, si es válido, genera un OTP (código de 6 dígitos) y lo envía vía SMS
+
+Validación de OTP: El cliente introduce el OTP recibido. El sistema comprueba coincidencia y caducidad (OTP válido < 5 min)
+
+Liveness Detection: Tras validar OTP, el sistema activa la cámara y solicita al cliente realizar una acción (por ejemplo, parpadear). El cliente realiza la acción y el módulo de liveness valida que sea una persona viva
+
+Creación de PIN: El sistema solicita un PIN de 6 dígitos. El cliente ingresa y confirma el PIN y el sistema comprueba reglas de seguridad (no secuencias, longitud, etc.)
+
+Registro final: Si todo es correcto, el sistema crea la cuenta, cifra el PIN, almacena los datos y genera sesión. El cliente es redirigido al dashboard con mensaje de “Registro exitoso”
+
+Flujos Alternativos:
+
+A1. Número inválido (Paso 2): El sistema detecta formato incorrecto y muestra “Número inválido…” y vuelve al paso 2
+
+A2. SMS no entregado (Paso 3): Tras 60 segundos sin confirmación, el sistema ofrece reenviar código, con un máximo de 3 reenvíos
+
+A3. OTP incorrecto o expirado (Paso 4): El sistema muestra “Código incorrecto o expirado” y permite reintentar o reenviar (vuelve al flujo A2) hasta 3 intentos, tras lo cual aborta
+
+A4. Liveness fallido (Paso 5): Si no se detecta acción válida, el sistema muestra un mensaje de error y permite hasta 3 reintentos tras los cuales regresa a OTP (Paso 3)
+
+A5. PIN no cumple criterios (Paso 6): El sistema muestra la guía de requisitos y vuelve a solicitar la creación y confirmación del PIN
+
+A6. Tiempo de registro excedido (más de 5 minutos): El sistema muestra “Tiempo excedido, inicia de nuevo” y retorna al principio del flujo
+
+Reglas de Negocio:
+
+RB1: El OTP consta de 6 dígitos y expira a los 5 minutos
+
+RB2: Se permiten un máximo de 3 intentos de OTP y liveness; de lo contrario, el flujo se reinicia
+
+RB3: El PIN es numérico de 6 dígitos
+
+RB4: El proceso completo debe completarse en 5 minutos o menos
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+CU-02: Verificación de Número
+
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Servicio de SMS, Base de Datos de Usuarios
+
+Descripción:
+
+Permite al cliente verificar su número de teléfono mediante un código OTP enviado por SMS para confirmar la titularidad del dispositivo.
+
+Precondiciones:
+
+El cliente ha ingresado un número de teléfono válido en el formulario de registro o desde perfil
+
+El servicio de envío de SMS está operativo
+
+Postcondiciones:
+
+Exitosa: El número de teléfono queda marcado como verificado en la base de datos y el cliente puede continuar con el flujo de registro o realizar transacciones
+
+Abortada: No se valida el número; el cliente recibe un mensaje de error y puede reintentar la verificación o actualizar el número
+
+Flujo Principal:
+
+Inicio: El cliente solicita la verificación de su número de teléfono desde el registro o ajustes de perfil
+
+Generación y envío de OTP: El sistema genera un código OTP de 6 dígitos y lo envía vía SMS al número proporcionado
+
+Ingreso de OTP: El cliente ingresa el código recibido en la pantalla de verificación
+
+Validación de OTP: El sistema comprueba coincidencia y caducidad del código (OTP válido < 5 minutos)
+
+Confirmación: Si el OTP es correcto, el sistema marca el número como verificado y notifica al cliente del éxito
+
+Flujos Alternativos:
+
+A1. SMS no entregado (Paso Generación y envío de OTP): Tras 60 segundos sin confirmación de entrega, el sistema ofrece reenviar el código, con un máximo de 3 reenvíos
+
+A2. OTP incorrecto o expirado (Paso Validación de OTP): El sistema muestra “Código incorrecto o expirado” y permite reintentar o reenviar (vuelve a A1) hasta 3 intentos, tras lo cual aborta el flujo
+
+
+Reglas de Negocio:
+
+RB1: El OTP consta de 6 dígitos y expira a los 5 minutos
+
+RB2: Se permiten un máximo de 3 intentos de OTP; al agotarse, se bloquea la verificación por 15 minutos
+
+RB3: Solo se aceptan números en formato internacional con código de país
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+CU-03: Inicio de Sesión con Número/PIN
+
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Base de Datos de Usuarios, Módulo de Autenticación
+
+Descripción:
+
+Permite al cliente acceder a la billetera móvil introduciendo su número de teléfono y un PIN previamente configurado, para iniciar sesión de forma rápida y segura.
+
+Precondiciones:
+
+El cliente debe tener una cuenta activa y su número de teléfono verificado
+
+El cliente debe haber configurado un PIN válido durante el registro o en ajustes
+
+Postcondiciones:
+
+Exitosa: Se crea una sesión activa para el cliente y se le redirige al dashboard
+
+Abortada: No se inicia sesión; el cliente recibe un mensaje de error y puede reintentar el ingreso de credenciales
+
+Flujo Principal:
+
+Inicio: El cliente selecciona “Iniciar Sesión” en la pantalla principal
+
+Ingreso de credenciales: El sistema muestra campos para número de teléfono y PIN; el cliente completa y envía
+
+Validación de formato: El sistema comprueba que el número y el PIN tienen el formato correcto
+
+Autenticación: El sistema verifica coincidencia entre el número y el PIN almacenado
+
+Generación de sesión: Si las credenciales son correctas, el sistema genera un token de sesión y lo asocia al cliente
+
+Redirección: El cliente es redirigido al dashboard con mensaje de “Bienvenido de nuevo”
+
+Flujos Alternativos:
+
+A1. Número o PIN vacío: El sistema muestra “Todos los campos son obligatorios” y vuelve al ingreso de credenciales
+
+A2. Formato inválido (Paso Validación de formato): El sistema muestra “Formato de número o PIN incorrecto” y permite corregir
+
+A3. Credenciales incorrectas (Paso Autenticación): El sistema muestra “Número o PIN incorrectos” y permite reintentar hasta 5 veces
+
+A4. Bloqueo temporal: Tras 5 intentos fallidos, el sistema bloquea inicio de sesión durante 15 minutos y notifica al cliente
+
+
+Reglas de Negocio:
+
+RB1: Se permiten hasta 5 intentos fallidos de PIN en un periodo de 15 minutos
+
+RB2: Tras 5 intentos fallidos, la cuenta queda bloqueada temporalmente por 15 minutos
+
+RB3: El token de sesión expira tras 30 minutos de inactividad
+
+RB4: El PIN debe almacenarse cifrado con algoritmo de hashing seguro (p.ej. Argon2)
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+CU-04: Inicio de Sesión Biométrico
+
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Sistema de Autenticación Biométrica, Base de Datos de Usuarios
+
+Descripción:
+
+Permite al cliente autenticarse usando huella dactilar o reconocimiento facial, para acceder rápidamente y reforzar la seguridad sin necesidad de ingresar PIN.
+
+Precondiciones:
+
+El cliente debe tener una cuenta activa, con número de teléfono verificado
+
+El cliente debe haber configurado biometría en el dispositivo y dado permisos de cámara/sensor
+
+El módulo de biometría del dispositivo debe estar operativo
+
+Postcondiciones:
+
+Exitosa: Se crea una sesión activa para el cliente y se le redirige al dashboard
+
+Abortada: No se inicia sesión biométrico; el cliente recibe un mensaje de error y puede optar por autenticarse con PIN
+
+Flujo Principal:
+
+Inicio: El cliente selecciona la opción de inicio de sesión biométrico en la pantalla de acceso
+
+Activación de sensor: La aplicación solicita al sistema operativo capturar la huella facial o dactilar
+
+Captura biométrica: El cliente coloca el dedo o se posiciona frente a la cámara; el sensor obtiene los datos
+
+Validación biométrica: El sistema compara los datos capturados con los registros almacenados
+
+Generación de sesión: Si la autenticación es correcta, el sistema genera un token de sesión y lo asocia al cliente
+
+Redirección: El cliente es redirigido al dashboard con mensaje de “Bienvenido de nuevo”
+
+Flujos Alternativos:
+
+A1. Sensor no soportado o permiso denegado: La aplicación muestra “Biometría no disponible” y ofrece autenticación con PIN
+
+A2. Fallo en la captura biométrica: El sistema muestra “No se pudo leer la huella/reconocimiento facial” y permite 3 reintentos
+
+A3. Intentos excedidos: Tras 3 intentos fallidos, la aplicación bloquea biometría y redirige a inicio con PIN
+
+A4. Cliente cancela: Si el cliente cancela durante la captura, retorna a la pantalla de inicio de sesión tradicional
+
+
+Reglas de Negocio:
+
+RB1: Solo se permiten 3 intentos de autenticación biométrica antes de requerir PIN
+
+RB2: El token de sesión expira tras 30 minutos de inactividad
+
+RB3: Los datos biométricos nunca se almacenan en la app, solo localmente en el hardware seguro del dispositivo
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-05: Recuperación de Contraseña
+
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Servicio de Email/SMS, Módulo de Autenticación, Base de Datos de Usuarios
+
+Descripción:
+
+Permite al cliente restablecer su PIN mediante un enlace o código temporal enviado a su canal registrado (SMS o email), para recuperar el acceso a la aplicación en caso de olvido.
+
+Precondiciones:
+
+El cliente debe tener una cuenta activa con un método de contacto (número de teléfono o email) verificado
+
+El servicio de envío de SMS o Email está operativo
+
+Postcondiciones:
+
+Exitosa: Se actualiza el PIN del cliente en la base de datos y se notifica del éxito; el cliente puede iniciar sesión con el nuevo PIN
+
+Abortada: No se actualiza el PIN; el cliente recibe un mensaje de error y puede reintentar el flujo o contactar soporte
+
+Flujo Principal:
+
+Inicio: El cliente selecciona “Olvidé mi PIN” en la pantalla de inicio de sesión
+
+Selección de canal: El cliente elige recibir un código de recuperación por SMS o Email
+
+Generación y envío de código: El sistema genera un código de recuperación de 6 dígitos y lo envía por el canal seleccionado
+
+Ingreso de código: El cliente introduce el código recibido en la pantalla de recuperación
+
+Validación de código: El sistema comprueba coincidencia y caducidad (código válido < 10 minutos)
+
+Creación de nuevo PIN: El sistema solicita un nuevo PIN de 6 dígitos y confirmación del mismo
+
+Validación de PIN: El sistema verifica que el PIN cumple criterios de seguridad (no secuencias, longitud mínima)
+
+Actualización de PIN: El sistema cifra y almacena el nuevo PIN en la base de datos
+
+Confirmación final: El sistema notifica “PIN restablecido con éxito” y redirige al cliente a la pantalla de inicio de sesión
+
+Flujos Alternativos:
+
+A1. Canal no disponible (Paso Selección de canal): Si SMS o Email falla, el sistema muestra “Canal no disponible” y ofrece cambiar de canal o contactar soporte
+
+A2. Código incorrecto o expirado (Paso Validación de código): El sistema muestra “Código inválido o expirado” y permite reintentar o reenviar (máx. 3 intentos)
+
+A3. PIN no cumple criterios (Paso Creación de nuevo PIN): El sistema muestra guía de requisitos y vuelve a solicitar ingreso y confirmación del PIN
+
+A4. Intentos excedidos (código > 3 reenvíos o máximos intentos de ingreso): El sistema bloquea recuperación durante 30 minutos y notifica al cliente
+
+
+
+
+
+
+
+
+
+Reglas de Negocio:
+
+RB1: El código de recuperación consta de 6 dígitos y expira a los 10 minutos
+
+RB2: Se permiten hasta 3 intentos de validación de código y 3 reenvíos; al agotarse, se bloquea la recuperación por 30 minutos
+
+RB3: El PIN restablecido es numérico de 6 dígitos y debe cumplir criterios de seguridad
+
+RB4: El proceso completo de recuperación debe completarse en 10 minutos o menos
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-06: Cierre de Sesión
+
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Módulo de Autenticación, Base de Datos de Sesiones
+
+Descripción:
+
+Permite al cliente cerrar su sesión activa en la billetera móvil, invalidando el token de sesión y eliminando credenciales temporales, para garantizar la seguridad de su cuenta.
+
+Precondiciones:
+
+El cliente debe tener una sesión iniciada y un token de sesión válido
+
+La conexión con el backend de autenticación debe estar operativa
+
+Postcondiciones:
+
+Exitosa: El token de sesión queda invalidado, la sesión se elimina en la base de datos y el cliente es redirigido a la pantalla de inicio de sesión
+
+Abortada: La sesión permanece activa; el cliente recibe un mensaje de error y puede reintentar la acción
+
+Flujo Principal:
+
+Inicio: El cliente selecciona “Cerrar Sesión” desde el menú de la aplicación
+
+Petición de cierre: La aplicación envía una solicitud al servidor para invalidar el token
+
+Invalidación de token: El servidor invalida el token de sesión y elimina los datos relacionados de la base de datos de sesiones
+
+Confirmación: El servidor responde con confirmación de cierre exitoso
+
+Redirección: La aplicación redirige al cliente a la pantalla de inicio de sesión y muestra mensaje de “Sesión cerrada con éxito”
+
+Flujos Alternativos:
+
+A1. Token inválido o expirado (Paso Petición de cierre): El servidor devuelve error de token inválido; la app limpia credenciales locales y redirige a inicio de sesión
+
+A2. Error de comunicación (Paso Petición de cierre): La app muestra “Error al cerrar sesión, inténtalo de nuevo” y permite reintentar
+
+
+
+
+
+
+
+
+
+Reglas de Negocio:
+
+RB1: El token de sesión debe eliminarse de manera inmediata tras la petición de cierre
+
+RB2: Se deben limpiar todas las credenciales temporales y datos de sesión en cache
+
+RB3: En caso de error persistente, se registra el incidente en el sistema de logs para auditoría
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-07: Actualización de Datos de Perfil
+
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Base de Datos de Usuarios, Módulo de Notificaciones
+
+Descripción:
+
+Permite al cliente editar su información personal (nombre, correo electrónico y foto de perfil) para mantener sus datos actualizados y garantizar la correcta identificación.
+
+Precondiciones:
+
+El cliente debe tener una cuenta activa y estar autenticado en la aplicación
+
+La conexión con el servidor y la base de datos de usuarios debe estar operativa
+
+Postcondiciones:
+
+Exitosa: Los datos de perfil del cliente se actualizan en la base de datos y se notifica al cliente del éxito
+
+Abortada: No se actualizan los datos; el cliente recibe un mensaje de error y puede reintentar la operación
+
+Flujo Principal:
+
+Inicio: El cliente accede a la sección "Perfil" en la aplicación
+
+Visualización de datos: El sistema muestra el formulario con los datos actuales (nombre, correo, foto)
+
+Edición de datos: El cliente modifica uno o varios campos y confirma los cambios
+
+Validación de datos: El sistema comprueba el formato de correo electrónico y tamaños de imagen
+
+Guardar cambios: El sistema envía la solicitud de actualización al servidor
+
+Confirmación: El servidor actualiza los datos, envía respuesta de éxito y el sistema muestra mensaje "Perfil actualizado con éxito"
+
+Flujos Alternativos:
+
+A1. Formato de correo inválido (Paso Validación de datos): El sistema muestra "Correo electrónico inválido" y solicita corrección
+
+A2. Tamaño de imagen excesivo (Paso Validación de datos): El sistema muestra "Imagen demasiado grande" y sugiere dimensiones y peso máximos
+
+A3. Error de conexión (Paso Guardar cambios): El sistema muestra "Error al guardar cambios, inténtalo de nuevo" y permite reintentar
+
+
+
+
+
+
+
+
+
+Reglas de Negocio:
+
+RB1: El correo electrónico debe seguir formato RFC 5322
+
+RB2: La imagen de perfil debe pesar menos de 2 MB y tener dimensiones máximas de 1024x1024 px
+
+RB3: Solo campos modificados deben ser enviados al servidor para optimizar la carga
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-08: Configurar o Cambiar PIN
+
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Base de Datos de Usuarios, Módulo de Autenticación
+
+Descripción:
+
+Permite al cliente definir un nuevo PIN o modificar el PIN existente para acceder de forma segura a la billetera móvil, garantizando el control de sus credenciales de acceso.
+
+Precondiciones:
+
+El cliente debe tener una cuenta activa y estar autenticado en la aplicación
+
+El cliente debe haber completado el registro inicial y verificado su número de teléfono
+
+Postcondiciones:
+
+Exitosa: El nuevo PIN se cifra y se almacena en la base de datos; el cliente recibe confirmación de éxito
+
+Abortada: El PIN no se actualiza; el cliente recibe un mensaje de error y puede reintentar la operación
+
+Flujo Principal:
+
+Inicio: El cliente accede a la sección “Seguridad” o “PIN” en los ajustes de la app
+
+Solicitud de PIN actual: El sistema solicita al cliente ingresar su PIN actual para validar identidad
+
+Validación de PIN actual: El sistema comprueba la coincidencia del PIN ingresado con el almacenado
+
+Ingreso de nuevo PIN: El sistema solicita ingresar un nuevo PIN de 6 dígitos y confirmarlo
+
+Validación de formato: El sistema comprueba que el nuevo PIN cumple los requisitos de seguridad (no secuencias, longitud mínima)
+
+Actualización de PIN: El sistema cifra y almacena el nuevo PIN en la base de datos
+
+Confirmación final: El sistema muestra “PIN actualizado con éxito” y redirige al cliente a la pantalla de ajustes principal
+
+Flujos Alternativos:
+
+A1. PIN actual incorrecto (Paso Validación de PIN actual): El sistema muestra “PIN actual incorrecto” y permite reintentar hasta 3 veces
+
+A2. Nuevo PIN no cumple criterios (Paso Validación de formato): El sistema muestra guía de requisitos y solicita reingresar y confirmar el nuevo PIN
+
+A3. Cancelación por parte del cliente: Si el cliente cancela el proceso, retorna a la pantalla de ajustes sin cambiar el PIN
+
+A4. Error de conexión (Paso Actualización de PIN): El sistema muestra “Error al actualizar PIN, inténtalo de nuevo” y permite reintentar
+
+
+
+
+
+
+
+
+
+Reglas de Negocio:
+
+RB1: El nuevo PIN debe ser numérico de 6 dígitos y no contener secuencias ascendentes o descendentes de más de 3 dígitos consecutivos
+
+RB2: Sólo se permiten 3 intentos para validar el PIN actual; tras ello, se cierra la sesión y se solicita inicio de sesión nuevamente
+
+RB3: El PIN se almacena cifrado con algoritmo seguro (por ejemplo, Argon2)
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-09: Recibir Notificaciones
+
+Actores:
+Primario: Cliente (usuario de la app)
+Secundarios: Módulo de Notificaciones, Servidor de Push, Base de Datos de Usuarios
+
+Descripción:
+Permite al cliente recibir notificaciones push sobre eventos importantes como pagos, inicios de sesión, alertas de seguridad y promociones, para estar siempre informado de la actividad en su cuenta.
+
+Precondiciones:
+El cliente debe tener una cuenta activa y estar autenticado en la aplicación
+El cliente debe haber otorgado permisos para recibir notificaciones push
+El servicio de push notifications del servidor debe estar operativo
+
+Postcondiciones:
+Exitosa: Se entrega la notificación al dispositivo del cliente y queda registrada en el historial de alertas
+Abortada: No se entrega la notificación; el sistema registra el fallo y puede reintentar el envío o notificar al cliente en el siguiente inicio de sesión
+
+Flujo Principal:
+Inicio: Ocurre un evento relevante en el sistema (p.ej. pago exitoso, nuevo inicio de sesión en otro dispositivo)
+Generación de notificación: El servidor compone el mensaje con título y contenido relevante
+envío de notificación: El Módulo de Notificaciones envía el push al dispositivo del cliente
+display en dispositivo: El sistema operativo del dispositivo muestra la notificación al cliente
+Registro en historial: La aplicación almacena un registro de la notificación en la sección "Alertas"
+
+Flujos Alternativos:
+A1. Cliente sin permisos (Paso Envío de notificación): Si el cliente no otorgó permisos, el sistema omite el envío y lo registra como "No entregado"
+A2. Error de comunicación (Paso Envío de notificación): Si falla el envío, el sistema intenta reintento automático hasta 2 veces y luego marca como "Fallido" en el registro
+
+
+
+
+
+
+
+
+Reglas de Negocio:
+RB1: Las notificaciones de seguridad (inicios de sesión, cambios de PIN) deben enviarse inmediatamente
+RB2: Las notificaciones promocionales pueden agruparse y enviarse con un máximo de 1 por hora para no saturar al usuario
+RB3: Solo se almacenan en historial las últimas 100 notificaciones para optimizar rendimiento
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-10: Cerrar Sesión en Otros Dispositivos
+
+Actores:
+Primario: Cliente (usuario de la app)
+Secundarios: Módulo de Gestión de Sesiones, Base de Datos de Sesiones
+
+Descripción:
+Permite al cliente revocar sesiones activas en otros dispositivos para asegurar que ningún acceso no autorizado permanezca abierto.
+
+Precondiciones:
+El cliente debe tener una cuenta activa y estar autenticado en la aplicación
+El sistema debe rastrear y mostrar las sesiones activas del cliente
+
+Postcondiciones:
+Exitosa: Todas las sesiones seleccionadas quedan invalidas y se eliminan de la base de datos; el cliente recibe confirmación
+Abortada: No se revocan sesiones; el cliente recibe un mensaje de error y puede reintentar la operación
+
+Flujo Principal:
+Inicio: El cliente accede a "Seguridad" > "Sesiones Activas" en ajustes
+Visualización de sesiones: El sistema muestra lista de dispositivos y fechas de última actividad
+Selección de sesiones: El cliente marca las sesiones que desea cerrar
+Confirmación de revocación: El cliente confirma la acción
+Revocación: El sistema invalida los tokens de las sesiones seleccionadas y elimina los registros
+Confirmación final: El sistema muestra "Sesiones cerradas con éxito" y actualiza la lista de sesiones
+
+Flujos Alternativos:
+A1. No hay sesiones activas (Paso Visualización de sesiones): El sistema muestra "No hay sesiones activas" y retorna al menú de seguridad
+A2. Error de comunicación (Paso Revocación): El sistema muestra "Error al revocar sesiones, inténtalo de nuevo" y permite reintentar
+
+Reglas de Negocio:
+RB1: El cliente puede revocar un máximo de 5 sesiones simultáneamente
+RB2: Los tokens invalidados deben expirar inmediatamente y no permitir renovaciones
+RB3: Se registra cada revocación en el historial de seguridad del usuario
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-11: Consultar Saldo
+Actores:
+
+Primario: Cliente (usuario de la app)
+
+Secundarios: Base de Datos de Cuentas, Módulo de Visualización
+
+Descripción:
+
+Permite al cliente visualizar su saldo disponible en la billetera digital, brindando información actualizada para tomar decisiones financieras.
+
+Precondiciones:
+
+El cliente debe tener una cuenta activa y estar autenticado en la aplicación
+
+El sistema debe tener acceso a la base de datos de cuentas
+
+Postcondiciones:
+
+Exitosa: El sistema muestra el saldo disponible actual del cliente
+
+Abortada: El saldo no se muestra; el cliente recibe un mensaje de error
+
+Flujo Principal:
+
+Inicio: El cliente accede a la sección "Mi saldo" en la aplicación
+
+Consulta: El sistema solicita el saldo disponible a la base de datos
+
+Visualización: El sistema muestra el monto actual disponible al cliente
+
+Flujos Alternativos:
+
+A1. Error de conexión o consulta (Paso Consulta): El sistema muestra "No se pudo obtener el saldo, verifica tu conexión" y permite reintentar
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: El saldo debe presentarse en la moneda local con dos decimales
+
+RB2: La consulta no debe tardar más de 3 segundos
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-12: Enviar Dinero a Contacto
+Actores:
+
+Primario: Cliente
+
+Secundarios: Base de Datos de Usuarios, Módulo de Transferencias, Módulo de Notificaciones
+
+Descripción:
+
+Permite al cliente transferir dinero a otro usuario de la app utilizando su número de teléfono, facilitando pagos peer-to-peer.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+El destinatario debe estar registrado en la plataforma
+
+El cliente debe tener saldo suficiente
+
+Postcondiciones:
+
+Exitosa: Se transfiere el monto indicado y ambas partes son notificadas
+
+Abortada: La transferencia no se realiza; se informa al cliente el motivo del fallo
+
+Flujo Principal:
+
+Inicio: El cliente accede a la opción "Enviar dinero"
+
+Datos: Ingresa número de teléfono del destinatario y el monto
+
+Validación: El sistema verifica la existencia del usuario y el saldo disponible
+
+Confirmación: El cliente confirma la operación
+
+Ejecución: El sistema transfiere el monto y actualiza los saldos
+
+Notificación: Se notifica al remitente y al receptor
+
+Flujos Alternativos:
+
+A1. Usuario no encontrado (Paso Validación): El sistema muestra "El número ingresado no está registrado"
+
+A2. Fondos insuficientes (Paso Validación): El sistema muestra "Saldo insuficiente para completar la transferencia"
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: El monto mínimo de transferencia es 1 unidad monetaria
+
+RB2: Solo se pueden enviar fondos a usuarios verificados
+
+RB3: Todas las transferencias deben registrarse con timestamp
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-13: Solicitar Dinero
+Actores:
+
+Primario: Cliente
+
+Secundarios: Base de Datos de Usuarios, Módulo de Solicitudes, Módulo de Notificaciones
+
+Descripción:
+
+Permite al cliente generar una solicitud de dinero a otro usuario, facilitando la recepción de pagos o reembolsos.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+El destinatario debe estar registrado en la plataforma
+
+Postcondiciones:
+
+Exitosa: Se genera la solicitud y el destinatario es notificado
+
+Abortada: La solicitud no se envía y el sistema informa al cliente
+
+Flujo Principal:
+
+Inicio: El cliente accede a la opción "Solicitar dinero"
+
+Datos: Ingresa número de teléfono del destinatario y el monto
+
+(Opcional): Añade una nota o concepto
+
+Validación: El sistema verifica la existencia del usuario
+
+Confirmación: El cliente envía la solicitud
+
+Notificación: El sistema registra la solicitud y notifica al destinatario
+
+Flujos Alternativos:
+
+A1. Usuario no encontrado (Paso Validación): El sistema muestra "El usuario no existe, revisa el número"
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: El monto solicitado debe ser mayor a 0
+
+RB2: No se permite enviar más de 3 solicitudes al mismo usuario por día
+
+RB3: Las solicitudes tienen una vigencia de 72 horas
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-14: Pagar Factura o Servicio
+Actores:
+
+Primario: Cliente
+
+Secundarios: Proveedores de Servicios, Base de Datos de Pagos, Módulo de Facturación
+
+Descripción:
+
+Permite al cliente realizar pagos de servicios básicos desde la app (agua, luz, internet, etc.), centralizando la gestión de sus facturas.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+Debe contar con saldo suficiente
+
+La empresa proveedora debe estar afiliada al sistema
+
+Postcondiciones:
+
+Exitosa: Se realiza el pago y se genera un comprobante
+
+Abortada: El pago no se realiza y se informa al cliente
+
+Flujo Principal:
+
+Inicio: El cliente selecciona "Pagar servicios"
+
+Selección: Escoge el proveedor (agua, luz, etc.)
+
+Datos: Ingresa número de referencia o cuenta del servicio
+
+Consulta: El sistema obtiene el monto a pagar desde el proveedor
+
+Confirmación: El cliente revisa y confirma el pago
+
+Ejecución: El sistema descuenta el monto y registra el pago
+
+Comprobante: Se emite y muestra el comprobante
+
+Flujos Alternativos:
+
+A1. Número de referencia inválido (Paso Consulta): El sistema informa "Referencia inválida, verifica los datos"
+
+A2. Fondos insuficientes (Paso Confirmación): El sistema muestra "No tienes saldo suficiente"
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: Solo se permiten pagos a proveedores registrados
+
+RB2: Los pagos deben confirmarse en menos de 5 minutos por seguridad
+
+RB3: Cada pago debe generar un comprobante con código único
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-15: Registrar Método de Pago
+Actores:
+
+Primario: Cliente
+
+Secundarios: Proveedor de Servicios Financieros, Módulo de Métodos de Pago
+
+Descripción:
+
+Permite al cliente vincular una cuenta bancaria o tarjeta de crédito/débito a la billetera para disponer de fondos adicionales o realizar recargas.
+
+Precondiciones:
+
+El cliente debe tener sesión iniciada
+
+El proveedor financiero debe estar disponible para validación
+
+Postcondiciones:
+
+Exitosa: El método de pago queda registrado y activo
+
+Abortada: No se guarda el método de pago; el cliente es notificado
+
+Flujo Principal:
+
+Inicio: El cliente accede a "Métodos de pago"
+
+Selección: Elige el tipo de método a agregar (tarjeta o cuenta)
+
+Datos: Ingresa los datos requeridos (número, fecha, CVC, etc.)
+
+Validación: El sistema verifica los datos con el proveedor financiero
+
+Confirmación: Si la validación es exitosa, se registra el método
+
+Visualización: El nuevo método se muestra como disponible en la app
+
+Flujos Alternativos:
+
+A1. Datos inválidos (Paso Validación): El sistema muestra "Datos inválidos, verifica e intenta nuevamente"
+
+A2. Rechazo del proveedor (Paso Validación): El sistema muestra "El método fue rechazado por el banco emisor"
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: Solo se pueden registrar métodos emitidos en el país del cliente
+
+RB2: El sistema debe cifrar los datos del método de pago conforme a PCI-DSS
+
+RB3: No se permite registrar más de 3 métodos activos por cuenta
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-16: Consultar Historial de Transacciones
+Actores:
+
+Primario: Cliente
+
+Secundarios: Base de Datos de Transacciones, Módulo de Visualización
+
+Descripción:
+
+Permite al cliente ver un listado detallado y cronológico de todas sus transacciones realizadas (pagos, ingresos, reversas), facilitando el seguimiento de sus movimientos financieros.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+Debe existir un historial asociado a la cuenta
+
+Postcondiciones:
+
+Exitosa: Se muestran las transacciones en orden cronológico
+
+Abortada: No se cargan los datos y se muestra un mensaje de error
+
+Flujo Principal:
+
+Inicio: El cliente accede a la opción "Historial de transacciones"
+
+Consulta: El sistema recupera el historial desde la base de datos
+
+Visualización: Se muestra la lista de transacciones ordenadas por fecha
+
+Flujos Alternativos:
+
+A1. No hay transacciones disponibles (Paso Consulta): El sistema muestra "No se encontraron transacciones registradas"
+
+A2. Error de conexión (Paso Consulta): El sistema muestra "No se pudo cargar el historial, intenta nuevamente"
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: Las transacciones se muestran con fecha, tipo, monto y descripción
+
+RB2: El historial debe mostrar como mínimo los últimos 6 meses
+
+RB3: La consulta no debe demorar más de 5 segundos
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-17: Filtrar y Buscar Transacciones
+
+Actores:
+
+
+Primario: Cliente
+
+Secundarios: Módulo de Búsqueda y Filtros, Base de Datos de Transacciones
+
+
+Descripción:
+
+
+Permite al cliente filtrar y buscar transacciones específicas según criterios como fecha, tipo (pago, ingreso, reversa) o monto, para localizar rápidamente operaciones relevantes.
+
+
+Precondiciones:
+
+
+El cliente debe estar autenticado
+
+Debe existir historial de transacciones
+
+
+Postcondiciones:
+
+
+Exitosa: El sistema muestra las transacciones filtradas según los criterios
+
+Abortada: No se encuentran coincidencias o se produce un error
+
+
+Flujo Principal:
+
+
+Inicio: El cliente accede a la opción de búsqueda en el historial
+
+Criterios: Selecciona o ingresa los filtros deseados
+
+Búsqueda: El sistema aplica los filtros y muestra los resultados
+
+
+Flujos Alternativos:
+
+
+A1. No hay coincidencias (Paso Búsqueda): El sistema muestra "No se encontraron transacciones con esos criterios"
+
+
+Reglas de Negocio:
+
+
+RB1: Se debe permitir combinar filtros (por ejemplo, tipo + fecha)
+
+RB2: Los filtros deben aplicarse en tiempo real sin recargar la pantalla
+
+RB3: El filtro por fecha debe permitir rangos personalizados
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-18: Exportar Historial de Transacciones
+Actores:
+
+Primario: Cliente
+
+Secundarios: Módulo de Exportación, Servidor de Archivos
+
+Descripción:
+
+Permite al cliente exportar su historial de transacciones a un archivo descargable en formato CSV o PDF, para archivarlo, imprimirlo o compartirlo.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+Debe existir historial de transacciones
+
+Postcondiciones:
+
+Exitosa: Se genera y descarga el archivo solicitado
+
+Abortada: La exportación falla y se informa al cliente
+
+Flujo Principal:
+
+Inicio: El cliente accede al historial de transacciones
+
+Opción: Selecciona “Exportar historial”
+
+Formato: Elige el formato deseado (CSV o PDF)
+
+Generación: El sistema procesa la solicitud y genera el archivo
+
+Descarga: El sistema ofrece el archivo para descarga
+
+Flujos Alternativos:
+
+A1. Error durante la exportación (Paso Generación): El sistema muestra "No se pudo generar el archivo, intenta más tarde"
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: El archivo debe incluir encabezados, totales y fecha de exportación
+
+RB2: En formato PDF, debe incluir logotipo y estilo corporativo
+
+RB3: El archivo generado debe mantenerse disponible por 10 minutos
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-19: Disputar Transacción
+Actores:
+
+Primario: Cliente
+
+Secundarios: Módulo de Atención al Cliente, Base de Datos de Transacciones, Sistema de Revisión
+
+Descripción:
+
+Permite al cliente reportar una transacción no reconocida o sospechosa, iniciando un proceso formal de revisión que puede resultar en el reembolso del monto.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+Debe existir la transacción en su historial
+
+Postcondiciones:
+
+Exitosa: La disputa queda registrada y se inicia la investigación
+
+Abortada: La disputa no se registra y se informa el motivo al cliente
+
+Flujo Principal:
+
+Inicio: El cliente accede a una transacción específica
+
+Opción: Selecciona “Reportar transacción”
+
+Motivo: El cliente describe el motivo o elige una opción del listado
+
+Registro: El sistema guarda la disputa y notifica al área correspondiente
+
+Confirmación: Se informa al cliente que la investigación ha comenzado
+
+Flujos Alternativos:
+
+A1. Transacción no disputable (Paso Opción): El sistema muestra "Esta operación no puede ser disputada por este canal"
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: Solo se pueden disputar transacciones realizadas en los últimos 30 días
+
+RB2: El cliente debe proporcionar un motivo válido o evidencia
+
+RB3: El sistema debe asignar un código de seguimiento a cada disputa
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-20: Listar Servicios Disponibles
+Actores:
+
+Primario: Cliente
+
+Secundarios: Catálogo de Servicios, Base de Datos
+
+Descripción:
+
+Permite al cliente visualizar todos los servicios disponibles en la billetera digital, tales como recargas móviles, seguros o inversiones, para que pueda evaluarlos y decidir si contratarlos.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+El sistema debe tener conexión con el catálogo actualizado de servicios
+
+Postcondiciones:
+
+Exitosa: Se muestran los servicios disponibles al cliente
+
+Abortada: No se listan los servicios y se muestra un mensaje de error
+
+Flujo Principal:
+
+Inicio: El cliente accede a la sección "Servicios"
+
+Solicitud: El sistema consulta el catálogo de servicios
+
+Listado: El sistema presenta la lista completa con nombre, categoría e ícono
+
+Interacción: El cliente puede explorar cada servicio para obtener más detalles
+
+Flujos Alternativos:
+
+A1. Error de carga del catálogo (Paso Solicitud): El sistema muestra "No se pudieron cargar los servicios. Intenta más tarde"
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: Solo se muestran servicios activos y disponibles en la región del cliente
+
+RB2: El catálogo debe actualizarse al menos una vez por día
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-21: Contratar o Activar Servicio
+Actores:
+
+Primario: Cliente
+
+Secundarios: Módulo de Servicios, Base de Datos de Contratos, Sistema de Notificaciones
+
+Descripción:
+
+Permite al cliente activar un servicio (como recarga móvil o seguro), para poder utilizarlo inmediatamente según las condiciones ofertadas.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+El servicio debe estar disponible y no estar previamente contratado por el cliente
+
+Postcondiciones:
+
+Exitosa: El servicio queda activado y se notifica al cliente
+
+Abortada: No se activa el servicio; se informa el motivo al cliente
+
+Flujo Principal:
+
+Inicio: El cliente accede al detalle de un servicio
+
+Acción: Selecciona “Activar servicio”
+
+Confirmación: El sistema solicita confirmación del cliente
+
+Registro: Se registra la activación en la base de datos
+
+Notificación: El cliente recibe confirmación de la activación exitosa
+
+Flujos Alternativos:
+
+A1. Servicio ya contratado (Paso Acción): El sistema muestra “Ya tienes este servicio activo”
+
+A2. Error en la activación (Paso Registro): El sistema muestra “No se pudo activar el servicio, inténtalo más tarde”
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: Un cliente no puede activar el mismo servicio más de una vez simultáneamente
+
+RB2: La activación debe generar una entrada en el historial del cliente
+
+RB3: Algunos servicios requieren aceptación de términos y condiciones
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-22: Gestionar Suscripciones
+Actores:
+
+Primario: Cliente
+
+Secundarios: Módulo de Suscripciones, Base de Datos, Sistema de Pagos
+
+Descripción:
+
+Permite al cliente administrar servicios contratados, como activar o desactivar la renovación automática, cancelar suscripciones activas y visualizar el estado actual.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+Debe tener al menos un servicio contratado
+
+Postcondiciones:
+
+Exitosa: La acción deseada sobre la suscripción se aplica correctamente
+
+Abortada: No se aplica el cambio; el sistema informa el motivo al cliente
+
+Flujo Principal:
+
+Inicio: El cliente accede a “Mis servicios”
+
+Selección: Elige una suscripción activa
+
+Acción: Configura renovación automática o cancela la suscripción
+
+Actualización: El sistema guarda los cambios
+
+Confirmación: Se notifica al cliente del cambio exitoso
+
+Flujos Alternativos:
+
+A1. Servicio no cancelable (Paso Acción): El sistema muestra “Este servicio no permite cancelación anticipada”
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: La cancelación debe realizarse al menos 24h antes del siguiente cobro
+
+RB2: Las suscripciones activas deben mostrar su próxima fecha de facturación
+
+RB3: Las configuraciones deben reflejarse en tiempo real en la base de datos
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+CU-23: Ver Detalles del Servicio
+Actores:
+
+Primario: Cliente
+
+Secundarios: Catálogo de Servicios, Base de Datos
+
+Descripción:
+
+Permite al cliente acceder a información detallada de un servicio (beneficios, cobertura, precios), para evaluar su utilidad y condiciones antes de contratarlo.
+
+Precondiciones:
+
+El cliente debe estar autenticado
+
+El servicio debe estar disponible en el sistema
+
+Postcondiciones:
+
+Exitosa: Se muestra la información completa del servicio seleccionado
+
+Abortada: No se muestran los detalles y se informa al cliente
+
+Flujo Principal:
+
+Inicio: El cliente accede al listado de servicios
+
+Selección: Elige un servicio específico
+
+Carga: El sistema recupera la información detallada del servicio
+
+Visualización: El cliente ve descripción, beneficios, precio, condiciones
+
+Flujos Alternativos:
+
+A1. Detalle no disponible (Paso Carga): El sistema muestra “No se encontró información detallada de este servicio”
+
+Reglas de Negocio:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RB1: La descripción debe incluir el costo, periodo de validez y condiciones de uso
+
+RB2: Los precios deben estar actualizados y reflejar impuestos si corresponde
+
+RB3: El cliente no puede contratar desde este flujo sin aceptar condiciones (si las hay)
