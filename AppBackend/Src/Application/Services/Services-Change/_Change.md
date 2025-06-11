@@ -1,0 +1,1 @@
+Se tienen que cambiar todos estos services, cada carpeta puede ser un service que realiza las acciones de los services de dentro como funciones, es muy rebuscado tenerlo tan separado
