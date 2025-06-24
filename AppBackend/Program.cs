@@ -12,7 +12,6 @@ builder.Services.AddScoped<IWeatherService, WeatherService>();
 
 var app = builder.Build();
 
-// Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
