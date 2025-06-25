@@ -7,6 +7,6 @@ public record TransactionDto(
     decimal Amount,
     string? Description,
     DateTime Timestamp,
-    int SourceWalletId,
-    int DestinationWalletId
+    int? SourceWalletId,
+    int? DestinationWalletId
 );

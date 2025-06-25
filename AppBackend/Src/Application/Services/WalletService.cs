@@ -105,8 +105,8 @@ public class WalletService : IWalletService
             t.Amount,
             t.Description,
             t.Timestamp,
-            t.SourceWalletId.Value,
-            t.DestinationWalletId.Value
+            t.SourceWalletId,
+            t.DestinationWalletId
         ));
     }
 }
