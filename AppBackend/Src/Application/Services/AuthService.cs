@@ -110,4 +110,47 @@ public class AuthService : IAuthService
 
         return new AuthResponseDto(userDto, sessionToken);
     }
+
+    public async Task<string> RequestPinRecoveryOtpAsync(string phoneNumber)
+    {
+        var user = await _unitOfWork.Users.GetByPhoneNumberAsync(phoneNumber);
+        if (user == null)
+        {
+            throw new KeyNotFoundException("El número de teléfono no está registrado.");
+        }
+
+        var otpCode = OtpGenerator.Generate();
+        var otpHash = _passwordHasher.Hash(otpCode);
+
+        var otpEntity = new Otp
+        {
+            PhoneNumber = phoneNumber,
+            CodeHash = otpHash,
+            Type = OtpType.PIN_RECOVERY,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(10)
+        };
+        await _unitOfWork.Otps.AddAsync(otpEntity);
+        await _unitOfWork.SaveChangesAsync();
+        return otpCode;
+    }
+
+    public async Task ResetPinAsync(string phoneNumber, string otpCode, string newPin)
+    {
+        var user = await _unitOfWork.Users.GetByPhoneNumberAsync(phoneNumber);
+        if (user == null) throw new KeyNotFoundException("Usuario no encontrado.");
+
+        var otpEntity = await _unitOfWork.Otps.FindValidOtpAsync(phoneNumber, OtpType.PIN_RECOVERY);
+        if (otpEntity == null || !_passwordHasher.Verify(otpCode, otpEntity.CodeHash))
+        {
+            throw new Exception("El código OTP es inválido o ha expirado.");
+        }
+        
+        otpEntity.IsUsed = true;
+        _unitOfWork.Otps.Update(otpEntity);
+        
+        user.PinHash = _passwordHasher.Hash(newPin);
+        _unitOfWork.Users.Update(user);
+        
+        await _unitOfWork.SaveChangesAsync();
+    }
 }
