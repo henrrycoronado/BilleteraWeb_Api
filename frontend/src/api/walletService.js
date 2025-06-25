@@ -1,3 +1,5 @@
+import apiClient from './apiClient.js';
+
 
 const simulateApiCall = (data, success = true, delay = 1000) => {
   return new Promise((resolve, reject) => {
@@ -11,16 +13,9 @@ const simulateApiCall = (data, success = true, delay = 1000) => {
   });
 };
 
-// --- Flujo de Saldo (CU-11) ---
-export const getBalance = async () => {
-  console.log(`API Sim: Obteniendo saldo.`);
-  // Aquí ya no necesitamos el token como parámetro porque asumimos que la sesión se maneja por cookies.
-  if (Math.random() < 0.2) {
-    console.error("API Sim: Error de red simulado.");
-    return simulateApiCall({ error_code: 'NETWORK_ERROR' }, false, 1500);
-  }
-  const randomBalance = Math.random() * 5000;
-  return simulateApiCall({ balance: randomBalance }, true, 1200);
+export const getBalance = () => {
+  // El token se añade automáticamente por el interceptor de apiClient.
+  return apiClient.get('/user/balance');
 };
 
 // --- Flujo de Métodos de Pago (CU-15) ---

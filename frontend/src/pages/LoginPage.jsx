@@ -3,15 +3,13 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { toast, Toaster } from 'react-hot-toast';
 
-import { login } from '../api/authService.js'; // <-- Importa el servicio
+import { login } from '../api/authService.js';
 import { LoginForm } from '../components/auth/LoginForm';
 
 export const LoginPage = ({ onLoginSuccess, showWelcome, showForgotPassword }) => {
     const [isLoading, setIsLoading] = useState(false);
 
-    // Esta es la función "cerebro" que maneja la lógica del login
     const handleLoginSubmit = async (phone, pin) => {
-        // Validación rápida de campos vacíos
         if (!phone || !pin) {
             toast.error('Todos los campos son obligatorios');
             return;
@@ -20,26 +18,33 @@ export const LoginPage = ({ onLoginSuccess, showWelcome, showForgotPassword }) =
         setIsLoading(true);
         toast.dismiss();
 
-        try {
-            const response = await login(phone, pin);
-            toast.success('¡Bienvenido de nuevo!');
-            // Llama a la función del padre (App.jsx) para cambiar de vista
-            onLoginSuccess(response.data.token);
-        } catch (error) {
-            // Maneja los errores específicos de la API aquí
-            switch (error.data?.error_code) {
-                case 'INVALID_CREDENTIALS':
-                    toast.error('Número o PIN incorrectos.');
-                    break;
-                case 'ACCOUNT_LOCKED':
-                    toast.error('Demasiados intentos. Tu cuenta está bloqueada temporalmente.');
-                    break;
-                default:
-                    toast.error('Ocurrió un error. Inténtalo de nuevo.');
-            }
-        } finally {
-            setIsLoading(false);
-        }
+        login(phone, pin)
+            .then(response => {
+                // La llamada fue exitosa (status 2xx)
+                console.log("Respuesta del backend:", response.data);
+                
+                // Extraemos el token de la respuesta, según tu controller
+                const token = response.data.token;
+                
+                // Guardamos el token en el localStorage para futuras peticiones
+                localStorage.setItem('authToken', token);
+                
+                toast.success(response.data.message || '¡Bienvenido de nuevo!');
+                
+                // Avisamos a App.jsx que el login fue exitoso
+                onLoginSuccess(token);
+            })
+            .catch(error => {
+                // La llamada falló. El error puede ser de red o del backend (4xx, 5xx)
+                console.error("Error en el login:", error.response);
+                // Mostramos el mensaje de error que viene del backend
+                const errorMessage = error.response?.data?.message || 'Ocurrió un error. Inténtalo de nuevo.';
+                toast.error(errorMessage);
+            })
+            .finally(() => {
+                // Esto se ejecuta siempre, tanto si hubo éxito como si hubo error
+                setIsLoading(false);
+            });
     };
 
     return (
@@ -51,7 +56,6 @@ export const LoginPage = ({ onLoginSuccess, showWelcome, showForgotPassword }) =
                     <p className="text-gray-500">Ingresa a tu billetera móvil.</p>
                 </div>
                 
-                {/* El "cerebro" le pasa su lógica y estado al "brazo" */}
                 <LoginForm onSubmit={handleLoginSubmit} isLoading={isLoading} />
 
                 <div className="flex justify-between items-center text-sm pt-2">

@@ -1,7 +1,7 @@
 // src/pages/DashboardPage.jsx
 import { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { getBalance, getPaymentMethods, getTransactionHistory } from '../api/walletService.js';
 import { BalanceDisplay } from '../components/dashboard/BalanceDisplay';
 import { AddPaymentMethodForm } from '../components/dashboard/AddPaymentMethodForm';
@@ -9,6 +9,8 @@ import { SendMoneyFlow } from '../components/dashboard/SendMoneyFlow';
 import { TopUpFlow } from '../components/dashboard/TopUpFlow';
 import { TransactionHistory } from '../components/dashboard/TransactionHistory';
 import { CreditCard } from 'lucide-react';
+import { ChangePinForm } from '../components/dashboard/ChangePinForm'; // <-- 1. Importar nuevo componente
+
 
 const Modal = ({ children, isOpen, onClose }) => {
     if (!isOpen) return null;
@@ -24,8 +26,8 @@ Modal.propTypes = { children: PropTypes.node, isOpen: PropTypes.bool, onClose: P
 
 export const DashboardPage = ({ onLogout }) => {
     const [balance, setBalance] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [isLoading, setIsBalanceLoading] = useState(true);
+    const [error, setBalanceError] = useState(null);
 
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [transactions, setTransactions] = useState([]);
@@ -37,16 +39,24 @@ export const DashboardPage = ({ onLogout }) => {
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
     const fetchBalance = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const response = await getBalance();
-            setBalance(response.data.balance);
-        } catch (err) {
-            setError(err);
-        } finally {
-            setIsLoading(false);
-        }
+        setIsBalanceLoading(true);
+        setBalanceError(null);
+        
+        getBalance() // <-- Llamada a la nueva función refactorizada
+            .then(response => {
+                // Asumimos que la respuesta del backend tiene la forma { data: { balance: 500 } }
+                // Si la estructura es diferente (ej: response.data.currentAmount), solo se cambia aquí.
+                setBalance(response.data.balance); 
+            })
+            .catch(err => {
+                // El error ya es manejado por el interceptor si es 401.
+                // Aquí manejamos otros errores para mostrar en la UI.
+                setBalanceError(err);
+                toast.error("No se pudo obtener el saldo.");
+            })
+            .finally(() => {
+                setIsBalanceLoading(false);
+            });
     }, []);
     
     const fetchPaymentMethods = useCallback(async () => {
@@ -150,6 +160,12 @@ export const DashboardPage = ({ onLogout }) => {
                              {paymentMethods.length === 0 && <p className="text-sm text-gray-500 text-center py-4">No tienes métodos de pago guardados.</p>}
                         </ul>
                     </div>
+
+                    <div className="w-full max-w-lg mx-auto mt-8 p-6 bg-white rounded-xl shadow-md">
+                        <h2 className="text-lg font-bold mb-4">Seguridad</h2>
+                        <ChangePinForm />
+                    </div>
+
                 </main>
             </div>
 
