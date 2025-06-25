@@ -9,6 +9,7 @@ public record RegisterUserRequestDto(
 
     [Required]
     [Phone]
+    [StringLength(8, MinimumLength = 8)]
     string PhoneNumber,
     
     [EmailAddress]
