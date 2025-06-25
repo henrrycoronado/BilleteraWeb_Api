@@ -3,15 +3,23 @@ import PropTypes from 'prop-types';
 import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
-export const TransactionItem = ({ transaction }) => {
-    const isSent = transaction.type === 'sent';
+export const TransactionItem = ({ transaction, currentWallet }) => {
+    // Vistazo aquí: La nueva lógica para determinar si la transacción es enviada.
+    // Asumimos que tanto transaction como currentWallet tienen un objeto con un 'id'.
+    const isSent = transaction.sourceWallet?.id === currentWallet?.id;
     
-    // Formateo de fecha simple
     const formattedDate = new Date(transaction.date).toLocaleDateString('es-ES', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
     });
+
+    // Para mostrar el nombre del contacto en la descripción
+    const contactName = isSent 
+        ? transaction.destinationWallet?.user?.fullName 
+        : transaction.sourceWallet?.user?.fullName;
+    
+    const description = transaction.description || `Transferencia ${isSent ? 'a' : 'de'} ${contactName || 'Desconocido'}`;
 
     return (
         <li className="flex items-center p-3 hover:bg-gray-50 rounded-md transition-colors">
@@ -22,7 +30,7 @@ export const TransactionItem = ({ transaction }) => {
                 }
             </div>
             <div className="flex-1">
-                <p className="font-semibold text-gray-800">{transaction.description}</p>
+                <p className="font-semibold text-gray-800">{description}</p>
                 <p className="text-sm text-gray-500">{formattedDate}</p>
             </div>
             <p className={`font-semibold text-lg ${isSent ? 'text-red-600' : 'text-green-600'}`}>
@@ -34,11 +42,7 @@ export const TransactionItem = ({ transaction }) => {
 };
 
 TransactionItem.propTypes = {
-    transaction: PropTypes.shape({
-        id: PropTypes.string.isRequired,
-        type: PropTypes.oneOf(['sent', 'received']).isRequired,
-        amount: PropTypes.number.isRequired,
-        description: PropTypes.string.isRequired,
-        date: PropTypes.string.isRequired,
-    }).isRequired,
+    transaction: PropTypes.object.isRequired,
+    // Le pasaremos los datos de la billetera actual para la comparación
+    currentWallet: PropTypes.object,
 };

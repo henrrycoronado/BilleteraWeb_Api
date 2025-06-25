@@ -5,19 +5,21 @@ import { toast } from 'react-hot-toast';
 import { addPaymentMethod } from '../../api/walletService.js';
 
 export const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
-    const [cardholderName, setCardholderName] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    
-    // Simulación de la obtención de un token desde un proveedor externo
-    const getPaymentTokenFromGateway = async () => {
+    const [type, setType] = useState('0'); // '0' para Tarjeta de Crédito por defecto
+    // Vistazo aquí: 1. Nuevo estado para guardar los últimos 4 dígitos
+    const [last4, setLast4] = useState(''); 
+
+    const getPaymentTokenFromGateway = async (last4Digits) => {
         console.log("Simulando comunicación con el proveedor de pagos...");
-        await new Promise(res => setTimeout(res, 1000)); // Simular latencia
+        await new Promise(res => setTimeout(res, 1000));
         
-        // Simular diferentes respuestas del proveedor
-        if (cardholderName.toLowerCase().includes('error')) return 'token_datos_invalidos';
-        if (cardholderName.toLowerCase().includes('rechazo')) return 'token_rechazado_banco';
-        
-        return 'tok_' + Math.random().toString(36).substring(2);
+        return {
+            token: 'tok_' + Math.random().toString(36).substring(2),
+            // Usamos los dígitos ingresados para el identificador
+            maskedIdentifier: `•••• ${last4Digits}`, 
+            provider: 'Visa',
+        };
     };
 
     const handleSubmit = async (e) => {
@@ -26,27 +28,23 @@ export const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
         toast.dismiss();
 
         try {
-            const paymentToken = await getPaymentTokenFromGateway();
-            const token = localStorage.getItem('authToken');
+            // Vistazo aquí: 3. Pasamos los 4 dígitos a nuestra simulación
+            const gatewayResponse = await getPaymentTokenFromGateway(last4);
             
-            const response = await addPaymentMethod(token, paymentToken);
+            const methodData = {
+                type: parseInt(type, 10), 
+                provider: gatewayResponse.provider,
+                token: gatewayResponse.token,
+                maskedIdentifier: gatewayResponse.maskedIdentifier,
+            };
+
+            const response = await addPaymentMethod(methodData);
+            
             toast.success('¡Método de pago añadido con éxito!');
-            onSuccess(response.data.newMethod);
+            onSuccess(response.data);
 
         } catch (error) {
-            switch (error.data?.error_code) {
-                case 'INVALID_DATA':
-                    toast.error('Datos inválidos, verifica e intenta nuevamente.'); // 
-                    break;
-                case 'PROVIDER_REJECTED':
-                    toast.error('El método fue rechazado por el banco emisor.'); // 
-                    break;
-                case 'METHOD_LIMIT_REACHED':
-                    toast.error('Has alcanzado el límite de 3 métodos de pago.'); //
-                    break;
-                default:
-                    toast.error('Ocurrió un error inesperado.');
-            }
+            toast.error(error.response?.data?.message || 'No se pudo añadir el método de pago.');
         } finally {
             setIsLoading(false);
         }
@@ -55,18 +53,43 @@ export const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <h2 className="text-xl font-bold text-center">Añadir Nuevo Método de Pago</h2>
+            
             <div>
-                <label htmlFor="cardholderName" className="text-sm font-medium text-gray-700">Nombre del Titular</label>
-                <input id="cardholderName" type="text" value={cardholderName} onChange={(e) => setCardholderName(e.target.value)} required
+                <label htmlFor="paymentMethodType" className="text-sm font-medium text-gray-700">Tipo de Método</label>
+                <select 
+                    id="paymentMethodType" 
+                    value={type} 
+                    onChange={(e) => setType(e.target.value)}
                     className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
-                />
+                >
+                    <option value="0">Tarjeta de Crédito</option>
+                    <option value="1">Tarjeta de Débito</option>
+                    <option value="2">Cuenta Bancaria</option>
+                </select>
             </div>
+
             <div>
                 <label className="text-sm font-medium text-gray-700">Datos de la Tarjeta</label>
                 <div className="w-full p-3 mt-1 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
                     Aquí iría el iFrame seguro del proveedor de pagos
                 </div>
             </div>
+
+            {/* Vistazo aquí: 2. El nuevo campo de input que hemos añadido */}
+            <div>
+                <label htmlFor="last4" className="text-sm font-medium text-gray-700">Últimos 4 dígitos</label>
+                <input
+                    id="last4"
+                    type="text"
+                    maxLength="4"
+                    value={last4}
+                    onChange={(e) => setLast4(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md"
+                    placeholder="4242"
+                />
+            </div>
+
             <div className="flex justify-end space-x-3 pt-4">
                 <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
                     Cancelar

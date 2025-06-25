@@ -24,9 +24,16 @@ const Modal = ({ children, isOpen, onClose }) => {
 };
 Modal.propTypes = { children: PropTypes.node, isOpen: PropTypes.bool, onClose: PropTypes.func };
 
+const paymentMethodTypeMap = {
+    0: 'Tarjeta de Crédito',
+    1: 'Tarjeta de Débito',
+    2: 'Cuenta Bancaria',
+};
+
 export const DashboardPage = ({ onLogout }) => {
     const [balance, setBalance] = useState(null);
     const [isLoading, setIsBalanceLoading] = useState(true);
+    const [currentWallet, setCurrentWallet] = useState(null);
     const [error, setBalanceError] = useState(null);
 
     const [paymentMethods, setPaymentMethods] = useState([]);
@@ -38,48 +45,49 @@ export const DashboardPage = ({ onLogout }) => {
     const [isSendMoneyModalOpen, setIsSendMoneyModalOpen] = useState(false);
     const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
 
+    
     const fetchBalance = useCallback(async () => {
         setIsBalanceLoading(true);
         setBalanceError(null);
-        
-        getBalance() // <-- Llamada a la nueva función refactorizada
+        getBalance()
             .then(response => {
-                // Asumimos que la respuesta del backend tiene la forma { data: { balance: 500 } }
-                // Si la estructura es diferente (ej: response.data.currentAmount), solo se cambia aquí.
-                setBalance(response.data.balance); 
+                // Vistazo aquí: 2. Guardamos tanto el saldo como el objeto completo de la billetera
+                setBalance(response.data.balance);
+                setCurrentWallet(response.data); // Asumimos que la respuesta es el walletDto
             })
             .catch(err => {
-                // El error ya es manejado por el interceptor si es 401.
-                // Aquí manejamos otros errores para mostrar en la UI.
                 setBalanceError(err);
                 toast.error("No se pudo obtener el saldo.");
             })
-            .finally(() => {
-                setIsBalanceLoading(false);
-            });
+            .finally(() => setIsBalanceLoading(false));
     }, []);
     
     const fetchPaymentMethods = useCallback(async () => {
-        try {
-            const token = localStorage.getItem('authToken');
-            const response = await getPaymentMethods(token);
-            setPaymentMethods(response.data.paymentMethods);
-        } catch (error) {
-            console.error("Error al obtener métodos de pago:", error);
-        }
+        getPaymentMethods()
+            .then(response => {
+                // La respuesta de axios contiene los datos en response.data
+                // Asumimos que el backend devuelve directamente el array de métodos
+                setPaymentMethods(response.data);
+            })
+            .catch(error => {
+                console.error("Error al obtener métodos de pago:", error);
+                toast.error("No se pudieron cargar tus métodos de pago.");
+            });
     }, []);
 
     const fetchHistory = useCallback(async () => {
         setIsHistoryLoading(true);
         setHistoryError(null);
-        try {
-            const response = await getTransactionHistory();
-            setTransactions(response.data.transactions);
-        } catch (err) {
-            setHistoryError(err);
-        } finally {
-            setIsHistoryLoading(false);
-        }
+        getTransactionHistory()
+            .then(response => {
+                // Asumimos que el backend devuelve directamente el array de transacciones
+                setTransactions(response.data);
+            })
+            .catch(err => {
+                setHistoryError(err);
+                toast.error("No se pudo cargar el historial.");
+            })
+            .finally(() => setIsHistoryLoading(false));
     }, []);
 
     useEffect(() => {
@@ -94,15 +102,16 @@ export const DashboardPage = ({ onLogout }) => {
         setIsAddMethodModalOpen(false);
     }
     
-    const handleTransferSuccess = (newBalance) => {
+    const handleTransferSuccess = () => {
         // Actualiza el saldo en el Dashboard inmediatamente
-        setBalance(newBalance);
+        fetchBalance();
         fetchHistory();
     };
     
-    const handleTopUpSuccess = (newBalance) => {
-        setBalance(newBalance);
+    const handleTopUpSuccess = () => {
+        fetchBalance(); // Refresca el saldo tras una recarga
         fetchHistory(); // Refresca el historial tras una recarga
+        setIsTopUpModalOpen(false); // Cierra el modal
     };
 
     return (
@@ -139,6 +148,7 @@ export const DashboardPage = ({ onLogout }) => {
                         error={historyError}
                         transactions={transactions}
                         onRetry={fetchHistory}
+                        currentWallet={currentWallet}
                     />
 
                     {/* Nueva sección para mostrar métodos de pago */}
@@ -150,14 +160,17 @@ export const DashboardPage = ({ onLogout }) => {
                             </button>
                         </div>
                         <ul className="space-y-3">
+                            {paymentMethods.length === 0 && <p className="text-sm text-gray-500 text-center py-4">No tienes métodos de pago guardados.</p>}
                             {paymentMethods.map(method => (
                                 <li key={method.id} className="flex items-center p-3 bg-gray-50 rounded-md">
                                     <CreditCard className="h-6 w-6 text-gray-500 mr-4" />
-                                    <span className="flex-1 font-mono text-gray-700">{method.type} •••• {method.last4}</span>
+                                    {/* Vistazo aquí: Usamos el map para mostrar el nombre del tipo */}
+                                    <span className="flex-1 font-mono text-sm">
+                                        {paymentMethodTypeMap[method.type] || 'Método'} •••• {method.maskedIdentifier || method.last4}
+                                    </span>
                                     {method.isDefault && <span className="text-xs text-green-600 font-bold">Default</span>}
                                 </li>
                             ))}
-                             {paymentMethods.length === 0 && <p className="text-sm text-gray-500 text-center py-4">No tienes métodos de pago guardados.</p>}
                         </ul>
                     </div>
 
@@ -186,11 +199,11 @@ export const DashboardPage = ({ onLogout }) => {
                 />
             </Modal>
             <Modal isOpen={isTopUpModalOpen} onClose={() => setIsTopUpModalOpen(false)}>
-                <TopUpFlow 
-                    paymentMethods={paymentMethods} 
-                    currentBalance={balance} 
-                    onSuccess={handleTopUpSuccess} 
-                    onCancel={() => setIsTopUpModalOpen(false)} />
+                <TopUpFlow
+                    paymentMethods={paymentMethods}
+                    onSuccess={handleTopUpSuccess}
+                    onCancel={() => setIsTopUpModalOpen(false)}
+                />
             </Modal>
         </>
     );

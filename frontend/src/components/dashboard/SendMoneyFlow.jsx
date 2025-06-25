@@ -2,17 +2,18 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { toast } from 'react-hot-toast';
-import { validateRecipient, executeTransfer } from '../../api/walletService';
-import { formatCurrency } from '../../utils/formatters';
+import { validateRecipient, sendMoney } from '../../api/walletService.js';
+import { formatCurrency } from '../../utils/formatters.js';
 
 // --- Componente del Paso 1: Formulario ---
 const SendMoneyForm = ({ onSubmit, isLoading }) => {
     const [phone, setPhone] = useState('');
     const [amount, setAmount] = useState('');
+    const [description, setDescription] = useState('');
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit(phone, parseFloat(amount));
+        onSubmit(phone, parseFloat(amount), description);
     };
 
     return (
@@ -23,7 +24,11 @@ const SendMoneyForm = ({ onSubmit, isLoading }) => {
             </div>
             <div>
                 <label htmlFor="amount" className="text-sm font-medium">Monto a Enviar (Bs.)</label>
-                <input id="amount" type="number" step="0.01" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+                <input id="amount" type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className="w-full px-3 py-2 mt-1 border rounded-md" />
+            </div>
+            <div>
+                <label htmlFor="description" className="text-sm font-medium">Descripción (Opcional)</label>
+                <input id="description" type="text" maxLength="100" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-3 py-2 mt-1 border rounded-md" />
             </div>
             <button type="submit" disabled={isLoading} className="w-full py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">
                 {isLoading ? 'Verificando...' : 'Continuar'}
@@ -34,6 +39,7 @@ const SendMoneyForm = ({ onSubmit, isLoading }) => {
 SendMoneyForm.propTypes = { onSubmit: PropTypes.func.isRequired, isLoading: PropTypes.bool };
 
 // --- Componente del Paso 2: Confirmación ---
+// Vistazo aquí: Este es el cuerpo completo y correcto del componente
 const SendMoneyConfirmation = ({ details, onConfirm, onCancel, isLoading }) => (
     <div className="space-y-4 text-center">
         <p className="text-gray-600">Vas a enviar:</p>
@@ -48,27 +54,27 @@ const SendMoneyConfirmation = ({ details, onConfirm, onCancel, isLoading }) => (
         </div>
     </div>
 );
-SendMoneyConfirmation.propTypes = { details: PropTypes.object, onConfirm: PropTypes.func, onCancel: PropTypes.func, isLoading: PropTypes.bool };
-
+SendMoneyConfirmation.propTypes = {
+    details: PropTypes.object,
+    onConfirm: PropTypes.func,
+    onCancel: PropTypes.func,
+    isLoading: PropTypes.bool
+};
 
 // --- Componente Principal (El Orquestador) ---
-export const SendMoneyFlow = ({ currentBalance, onTransferSuccess, onCancel }) => {
-    const [step, setStep] = useState('enter_details'); // enter_details, confirm, success
+export const SendMoneyFlow = ({ onTransferSuccess, onCancel }) => {
+    const [step, setStep] = useState('enter_details');
     const [transferDetails, setTransferDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleDetailsSubmit = async (phone, amount) => {
+    const handleDetailsSubmit = async (phone, amount, description) => {
         setIsLoading(true);
         try {
             const response = await validateRecipient(phone);
-            setTransferDetails({ phone, amount, recipientName: response.data.recipient.name });
+            setTransferDetails({ phone, amount, description, recipientName: response.data.recipient.name });
             setStep('confirm');
         } catch (error) {
-            if (error.data?.error_code === 'USER_NOT_FOUND') {
-                toast.error('El número ingresado no está registrado.');
-            } else {
-                toast.error('Ocurrió un error al validar el destinatario.');
-            }
+            toast.error('El número ingresado no está registrado.');
         } finally {
             setIsLoading(false);
         }
@@ -76,23 +82,29 @@ export const SendMoneyFlow = ({ currentBalance, onTransferSuccess, onCancel }) =
 
     const handleConfirmTransfer = async () => {
         setIsLoading(true);
-        try {
-            const response = await executeTransfer(transferDetails.phone, transferDetails.amount, currentBalance);
-            toast.success('¡Transferencia realizada con éxito!');
-            setStep('success');
-            // Informar al Dashboard sobre el nuevo saldo
-            onTransferSuccess(response.data.newBalance); 
-        } catch (error) {
-            if (error.data?.error_code === 'INSUFFICIENT_FUNDS') {
-                toast.error('No tienes saldo suficiente para esta transferencia.');
-            } else {
-                toast.error('No se pudo realizar la transferencia.');
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        
+        const transferData = {
+            recipientPhoneNumber: transferDetails.phone,
+            amount: transferDetails.amount,
+            description: transferDetails.description,
+        };
 
+        sendMoney(transferData)
+            .then(response => {
+                console.log("Transferencia exitosa:", response.data);
+                toast.success('¡Transferencia realizada con éxito!');
+                setStep('success');
+                onTransferSuccess();
+            })
+            .catch(error => {
+                toast.error(error.response?.data?.message || 'No se pudo realizar la transferencia.');
+                setStep('enter_details');
+            })
+            .finally(() => {
+                setIsLoading(false);
+            });
+    };
+    
     if (step === 'success') {
         return (
             <div className="text-center space-y-4">
@@ -120,7 +132,6 @@ export const SendMoneyFlow = ({ currentBalance, onTransferSuccess, onCancel }) =
 };
 
 SendMoneyFlow.propTypes = {
-    currentBalance: PropTypes.number,
     onTransferSuccess: PropTypes.func.isRequired,
     onCancel: PropTypes.func.isRequired,
 };

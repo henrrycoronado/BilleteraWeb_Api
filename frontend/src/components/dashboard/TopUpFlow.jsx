@@ -2,11 +2,11 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { toast } from 'react-hot-toast';
-import { executeTopUp } from '../../api/walletService.js';
+import { reloadWallet } from '../../api/walletService.js'; // <-- Importamos la nueva función
 import { formatCurrency } from '../../utils/formatters.js';
 import { CreditCard } from 'lucide-react';
 
-export const TopUpFlow = ({ paymentMethods, currentBalance, onSuccess, onCancel }) => {
+export const TopUpFlow = ({ paymentMethods, onSuccess, onCancel }) => {
     const [step, setStep] = useState('form'); // form, processing, success
     const [selectedMethodId, setSelectedMethodId] = useState(paymentMethods.find(m => m.isDefault)?.id || null);
     const [amount, setAmount] = useState('');
@@ -18,29 +18,38 @@ export const TopUpFlow = ({ paymentMethods, currentBalance, onSuccess, onCancel 
             return;
         }
         const numericAmount = parseFloat(amount);
-        if (isNaN(numericAmount) || numericAmount <= 0) {
-            toast.error('Por favor, ingresa un monto válido.');
+        if (isNaN(numericAmount) || numericAmount < 1) {
+            toast.error('Por favor, ingresa un monto válido (mínimo 1).');
             return;
         }
 
         setStep('processing');
 
-        try {
-            const response = await executeTopUp(selectedMethodId, numericAmount, currentBalance);
-            toast.success('¡Recarga realizada con éxito!');
-            onSuccess(response.data.newBalance); // Avisa al Dashboard del nuevo saldo
-            setStep('success');
-        } catch (error) {
-            toast.error(error.data?.message || 'La recarga no pudo ser procesada.');
-            setStep('form'); // Vuelve al formulario en caso de error
-        }
+        // Construimos el DTO que el backend espera
+        const topUpData = {
+            paymentMethodId: selectedMethodId,
+            amount: numericAmount,
+        };
+
+        reloadWallet(topUpData)
+            .then(response => {
+                // El backend devuelve el DTO de la transacción, lo mostramos en consola
+                console.log("Transacción de recarga exitosa:", response.data);
+                toast.success('¡Recarga realizada con éxito!');
+                onSuccess(); // Avisa al Dashboard que la recarga fue exitosa para que refresque los datos
+                setStep('success');
+            })
+            .catch(error => {
+                toast.error(error.response?.data?.message || 'La recarga no pudo ser procesada.');
+                setStep('form'); // Vuelve al formulario en caso de error
+            });
     };
 
     if (step === 'success') {
         return (
             <div className="text-center space-y-4">
                 <h2 className="text-2xl font-bold text-green-600">¡Recarga Exitosa!</h2>
-                <p>El monto ha sido añadido a tu saldo.</p>
+                <p>El monto ha sido añadido a tu saldo. Verás el saldo actualizado en tu Dashboard.</p>
                 <button onClick={onCancel} className="w-full mt-4 py-2 text-white bg-indigo-600 rounded-md">Cerrar</button>
             </div>
         );
@@ -70,7 +79,7 @@ export const TopUpFlow = ({ paymentMethods, currentBalance, onSuccess, onCancel 
                                     className="h-4 w-4 text-indigo-600 border-gray-300"
                                 />
                                 <CreditCard className="h-5 w-5 text-gray-500 mx-3" />
-                                <span className="flex-1 font-mono text-sm">{method.type} •••• {method.last4}</span>
+                                <span className="flex-1 font-mono text-sm">{paymentMethodTypeMap[method.type] || 'Método'} •••• {method.maskedIdentifier || method.last4}</span>
                                 {method.isDefault && <span className="text-xs text-green-600 font-bold">Default</span>}
                             </label>
                         ))}
@@ -87,7 +96,7 @@ export const TopUpFlow = ({ paymentMethods, currentBalance, onSuccess, onCancel 
                  <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
                     Cancelar
                 </button>
-                <button type="submit" className="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                <button type="submit" disabled={!selectedMethodId || !amount} className="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-indigo-400">
                     Recargar {amount ? formatCurrency(parseFloat(amount)) : ''}
                 </button>
             </div>
@@ -95,9 +104,14 @@ export const TopUpFlow = ({ paymentMethods, currentBalance, onSuccess, onCancel 
     );
 };
 
+const paymentMethodTypeMap = {
+    0: 'Tarjeta de Crédito',
+    1: 'Tarjeta de Débito',
+    2: 'Cuenta Bancaria',
+};
+
 TopUpFlow.propTypes = {
     paymentMethods: PropTypes.array.isRequired,
-    currentBalance: PropTypes.number,
     onSuccess: PropTypes.func.isRequired,
     onCancel: PropTypes.func.isRequired,
 };
