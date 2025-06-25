@@ -3,6 +3,7 @@ using Application.Interfaces;
 using Domain.Entities;
 using Domain.Repository;
 using Application.Utils;
+using System.Security.Claims;
 
 namespace Application.Services;
 
@@ -10,11 +11,13 @@ public class AuthService : IAuthService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ITokenGenerator _tokenGenerator;
 
-    public AuthService(IUnitOfWork unitOfWork, IPasswordHasher passwordHasher)
+    public AuthService(IUnitOfWork unitOfWork, IPasswordHasher passwordHasher, ITokenGenerator tokenGenerator)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
+        _tokenGenerator = tokenGenerator;
     }
 
     public async Task<string> RequestRegistrationOtpAsync(string phoneNumber)

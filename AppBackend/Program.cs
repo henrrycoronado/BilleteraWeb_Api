@@ -1,4 +1,3 @@
-using AppBackend.Services;
 using Microsoft.EntityFrameworkCore;
 using Domain.Repository;
 using Application.Interfaces;
@@ -17,7 +16,6 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped<IWeatherService, WeatherService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();

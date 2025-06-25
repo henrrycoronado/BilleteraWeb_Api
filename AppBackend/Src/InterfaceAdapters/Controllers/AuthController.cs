@@ -20,7 +20,6 @@ public class AuthController : ControllerBase
     {
         try
         {
-            // El controlador extrae el dato primitivo del DTO
             var otp = await _authService.RequestRegistrationOtpAsync(request.PhoneNumber);
             return Ok(new { message = "OTP generado para simulación.", otpCode = otp });
         }
@@ -51,14 +50,17 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    [ProducesResponseType(typeof(AuthResponseDto), 200)]
-    [ProducesResponseType(typeof(object), 401)]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
         try
         {
             var authResponse = await _authService.LoginAsync(request.PhoneNumber, request.Pin);
-            return Ok(authResponse);
+            return Ok(new 
+            { 
+                message = "Inicio de sesión exitoso",
+                user = authResponse.User,
+                token = authResponse.Token
+            });
         }
         catch (Exception ex)
         {
