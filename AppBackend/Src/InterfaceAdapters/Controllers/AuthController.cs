@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace InterfaceAdapters.Controllers;
 
 [ApiController]
-[Route("api/v1/auth")]
+[Route("/auth")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -65,6 +65,38 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             return Unauthorized(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("forgot-pin/request-otp")]
+    public async Task<IActionResult> RequestPinRecovery([FromBody] RequestOtpRequestDto request)
+    {
+        try
+        {
+            var otp = await _authService.RequestPinRecoveryOtpAsync(request.PhoneNumber);
+            return Ok(new { message = "OTP de recuperación generado.", otpCode = otp });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("forgot-pin/reset")]
+    public async Task<IActionResult> ResetPin([FromBody] ResetPinRequestDto request)
+    {
+        try
+        {
+            await _authService.ResetPinAsync(request.PhoneNumber, request.OtpCode, request.NewPin);
+            return Ok(new { message = "Tu PIN ha sido restablecido exitosamente." });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 }
