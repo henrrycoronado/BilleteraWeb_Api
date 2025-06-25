@@ -30,7 +30,6 @@ public class Transaction
     
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
-    // Relaciones de navegación
     [ForeignKey("SourceWalletId")]
     public Wallet? SourceWallet { get; set; }
     
