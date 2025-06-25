@@ -8,32 +8,32 @@ import { VerifyResetCodeForm } from '../components/auth/VerifyResetCodeForm';
 import { ResetPinForm } from '../components/auth/ResetPinForm';
 
 export const ForgotPasswordPage = ({ showLogin }) => {
-    const [step, setStep] = useState('request_code'); // request_code, verify_code, reset_pin
+    const [step, setStep] = useState('request_code');
     const [isLoading, setIsLoading] = useState(false);
-    
-    // Estado para guardar los datos entre pasos
     const [recoveryData, setRecoveryData] = useState({
         phoneNumber: '',
         otpCode: '',
     });
 
     const handleRequestSubmit = (phoneNumber) => {
-    setIsLoading(true);
-    requestPinRecoveryOtp(phoneNumber)
-        .then(response => {
-            toast.success('Código de recuperación enviado.');
-            setRecoveryData({ phoneNumber, otpCode: '' });
-            setStep('verify_code');
-        })
-        .catch(error => {
-            toast.error(error.response?.data?.message || 'Error al solicitar el código.');
-        })
-        .finally(() => setIsLoading(false));
-};
+        setIsLoading(true);
+        requestPinRecoveryOtp(phoneNumber)
+            .then(response => {
+                const otp = response.data.otpCode;
+                // Vistazo aquí: Mostramos el OTP para pruebas
+                console.log("--- CÓDIGO DE PRUEBA (OTP RECUPERACIÓN) ---:", otp);
+                toast.success(`Código de prueba enviado: ${otp}`);
+                
+                setRecoveryData({ phoneNumber, otpCode: '' });
+                setStep('verify_code');
+            })
+            .catch(error => {
+                toast.error(error.response?.data?.message || 'Error al solicitar el código.');
+            })
+            .finally(() => setIsLoading(false));
+    };
     
     const handleVerifySubmit = (otpCode) => {
-        // En este flujo, el backend no verifica el OTP hasta el final.
-        // Así que solo lo guardamos y avanzamos de paso.
         setRecoveryData(prev => ({ ...prev, otpCode }));
         setStep('reset_pin');
     };
@@ -45,12 +45,12 @@ export const ForgotPasswordPage = ({ showLogin }) => {
         resetPin(finalData)
             .then(response => {
                 toast.success(response.data.message || '¡PIN restablecido con éxito!');
-                setTimeout(showLogin, 2000); // Volvemos a login tras el éxito
+                setTimeout(showLogin, 2000);
             })
             .catch(error => {
                 toast.error(error.response?.data?.message || 'No se pudo restablecer el PIN.');
             })
-            .finally(() => setIsLoading(false));
+          .finally(() => setIsLoading(false));
     };
 
     const renderStep = () => {
