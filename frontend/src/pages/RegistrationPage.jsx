@@ -8,31 +8,23 @@ import { OtpVerificationForm } from '../components/auth/OtpVerificationForm';
 import { LivenessCheck } from '../components/auth/LivenessCheck';
 import { CreatePinForm } from '../components/auth/CreatePinForm';
 
-import { requestOtp, registerUser } from '../api/authService.js';
+import { AuthServices } from '../api/authService.js';
 
 
 export const RegistrationPage = ({ showLogin }) => {
     const [step, setStep] = useState('USER_INFO');
     const [isLoading, setIsLoading] = useState(false);
-
-    // Este estado acumulará todos los datos del registro
     const [registrationData, setRegistrationData] = useState({
         fullName: '',
         phoneNumber: '',
         email: '',
         otpCode: '',
-        pin: ''
     });
-
-    // Se ejecuta al enviar el primer formulario (UserInfoForm)
     const handleInfoSubmit = (userInfo) => {
         setIsLoading(true);
-        // Guardamos los datos del usuario en nuestro estado acumulativo
         setRegistrationData(prev => ({ ...prev, ...userInfo }));
-
-        requestOtp(userInfo.phoneNumber)
+        AuthServices.requestOtp({phoneNumber: userInfo.phoneNumber, email: userInfo.email})
             .then(response => {
-                // Aquí podríamos usar el OTP real que devuelve el backend para pruebas
                 console.log("OTP devuelto por el backend para simulación:", response.data.otpCode);
                 toast.success('Te hemos enviado un código de verificación.');
                 setStep('VERIFY_OTP');
@@ -43,35 +35,31 @@ export const RegistrationPage = ({ showLogin }) => {
             .finally(() => setIsLoading(false));
     };
 
-    // Se ejecuta al enviar el OTP
     const handleOtpSubmit = (otp) => {
-        // Ya no llamamos a una API. Solo guardamos el OTP y avanzamos.
         setRegistrationData(prev => ({ ...prev, otpCode: otp }));
         setStep('LIVENESS_CHECK');
     };
-
-    // La simulación de Liveness solo nos hace avanzar al siguiente paso
     const handleLivenessSuccess = () => {
         setStep('CREATE_PIN');
     };
-
-    // Se ejecuta al crear el PIN (el paso final)
-    const handlePinSubmit = (pin) => {
+    const handlePinSubmit = (pinI) => {
         setIsLoading(true);
-        
-        // Creamos el objeto final con todos los datos recolectados
-        const finalData = { ...registrationData, pin };
-
-        registerUser(finalData)
+        const finalData = {
+            fullName: registrationData.fullName,
+            phoneNumber: registrationData.phoneNumber,
+            email: registrationData.email,
+            otpCode: registrationData.otpCode,
+            pin: pinI
+        }
+        console.log(finalData);
+        AuthServices.registerUser(finalData)
             .then(response => {
                 toast.success(response.data.message || '¡Registro exitoso!');
-                // Llevamos al usuario a la pantalla de login para que inicie sesión
                 setTimeout(showLogin, 2000); 
             })
             .catch(error => {
+                console.log(error);
                 toast.error(error.response?.data?.message || 'El registro falló.');
-                // En caso de error, podríamos reiniciar el flujo
-                // setStep('USER_INFO');
             })
             .finally(() => setIsLoading(false));
     };
@@ -79,14 +67,12 @@ export const RegistrationPage = ({ showLogin }) => {
     const renderStep = () => {
         switch (step) {
             case 'USER_INFO':
-                return <UserInfoForm onSubmit={handleInfoSubmit} onSwitchToLogin={showLogin} isLoading={isLoading} />;
+                return <UserInfoForm onSubmit={handleInfoSubmit} onSwitchToLogin={showLogin} isLoading={isLoading}/>;
             case 'VERIFY_OTP':
-                // Ahora solo necesita pasar el OTP hacia arriba
-                return <OtpVerificationForm onSubmit={handleOtpSubmit} isLoading={isLoading} />;
+                return <OtpVerificationForm onSubmit={handleOtpSubmit} isLoading={isLoading} phoneNumberI={registrationData.phoneNumber}/>;
             case 'LIVENESS_CHECK':
                 return <LivenessCheck onSuccess={handleLivenessSuccess} />;
             case 'CREATE_PIN':
-                // El último paso que gatilla la llamada final
                 return <CreatePinForm onSubmit={handlePinSubmit} isLoading={isLoading} />;
             default:
                 return <UserInfoForm onSubmit={handleInfoSubmit} onSwitchToLogin={showLogin} isLoading={isLoading} />;

@@ -1,15 +1,15 @@
-// src/pages/DashboardPage.jsx
 import { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Toaster, toast } from 'react-hot-toast';
-import { getBalance, getPaymentMethods, getTransactionHistory } from '../api/walletService.js';
+import { UserServices } from '../api/userServices.js';
+import { PaymentServices } from '../api/paymentService.js';
 import { BalanceDisplay } from '../components/dashboard/BalanceDisplay';
 import { AddPaymentMethodForm } from '../components/dashboard/AddPaymentMethodForm';
 import { SendMoneyFlow } from '../components/dashboard/SendMoneyFlow';
 import { TopUpFlow } from '../components/dashboard/TopUpFlow';
 import { TransactionHistory } from '../components/dashboard/TransactionHistory';
 import { CreditCard } from 'lucide-react';
-import { ChangePinForm } from '../components/dashboard/ChangePinForm'; // <-- 1. Importar nuevo componente
+import { ChangePinForm } from '../components/dashboard/ChangePinForm';
 
 
 const Modal = ({ children, isOpen, onClose }) => {
@@ -49,11 +49,10 @@ export const DashboardPage = ({ onLogout }) => {
     const fetchBalance = useCallback(async () => {
         setIsBalanceLoading(true);
         setBalanceError(null);
-        getBalance()
+        UserServices.getBalance()
             .then(response => {
-                // Vistazo aquí: 2. Guardamos tanto el saldo como el objeto completo de la billetera
                 setBalance(response.data.balance);
-                setCurrentWallet(response.data); // Asumimos que la respuesta es el walletDto
+                setCurrentWallet(response.data);
             })
             .catch(err => {
                 setBalanceError(err);
@@ -63,10 +62,8 @@ export const DashboardPage = ({ onLogout }) => {
     }, []);
     
     const fetchPaymentMethods = useCallback(async () => {
-        getPaymentMethods()
+        PaymentServices.getPaymentMethods()
             .then(response => {
-                // La respuesta de axios contiene los datos en response.data
-                // Asumimos que el backend devuelve directamente el array de métodos
                 setPaymentMethods(response.data);
             })
             .catch(error => {
@@ -78,9 +75,8 @@ export const DashboardPage = ({ onLogout }) => {
     const fetchHistory = useCallback(async () => {
         setIsHistoryLoading(true);
         setHistoryError(null);
-        getTransactionHistory()
+        UserServices.getTransactionHistory()
             .then(response => {
-                // Asumimos que el backend devuelve directamente el array de transacciones
                 setTransactions(response.data);
             })
             .catch(err => {
@@ -89,7 +85,6 @@ export const DashboardPage = ({ onLogout }) => {
             })
             .finally(() => setIsHistoryLoading(false));
     }, []);
-
     useEffect(() => {
         fetchBalance();
         fetchPaymentMethods();
@@ -103,15 +98,14 @@ export const DashboardPage = ({ onLogout }) => {
     }
     
     const handleTransferSuccess = () => {
-        // Actualiza el saldo en el Dashboard inmediatamente
         fetchBalance();
         fetchHistory();
     };
     
     const handleTopUpSuccess = () => {
-        fetchBalance(); // Refresca el saldo tras una recarga
-        fetchHistory(); // Refresca el historial tras una recarga
-        setIsTopUpModalOpen(false); // Cierra el modal
+        fetchBalance();
+        fetchHistory();
+        setIsTopUpModalOpen(false);
     };
 
     return (

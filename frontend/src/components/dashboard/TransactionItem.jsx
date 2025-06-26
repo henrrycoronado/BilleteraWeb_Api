@@ -1,23 +1,15 @@
-// src/components/dashboard/TransactionItem.jsx
 import PropTypes from 'prop-types';
 import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
 export const TransactionItem = ({ transaction, currentWallet }) => {
-    // Vistazo aquí: La nueva lógica para determinar si la transacción es enviada.
-    // Asumimos que tanto transaction como currentWallet tienen un objeto con un 'id'.
-    const isSent = transaction.sourceWallet?.id === currentWallet?.id;
+    const isSent = transaction.sourceWalletId === currentWallet?.id;
     
-    const formattedDate = new Date(transaction.date).toLocaleDateString('es-ES', {
+    const formattedDate = new Date(transaction.timestamp).toLocaleDateString('es-ES', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
     });
-
-    // Para mostrar el nombre del contacto en la descripción
-    const contactName = isSent 
-        ? transaction.destinationWallet?.user?.fullName 
-        : transaction.sourceWallet?.user?.fullName;
     
     const description = transaction.description || `Transferencia ${isSent ? 'a' : 'de'} ${contactName || 'Desconocido'}`;
 
@@ -43,6 +35,5 @@ export const TransactionItem = ({ transaction, currentWallet }) => {
 
 TransactionItem.propTypes = {
     transaction: PropTypes.object.isRequired,
-    // Le pasaremos los datos de la billetera actual para la comparación
     currentWallet: PropTypes.object,
 };

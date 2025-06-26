@@ -1,13 +1,11 @@
-// src/components/dashboard/TopUpFlow.jsx
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { toast } from 'react-hot-toast';
-import { reloadWallet } from '../../api/walletService.js'; // <-- Importamos la nueva función
+import { PaymentServices } from '../../api/paymentService.js';
 import { formatCurrency } from '../../utils/formatters.js';
 import { CreditCard } from 'lucide-react';
 
 export const TopUpFlow = ({ paymentMethods, onSuccess, onCancel }) => {
-    const [step, setStep] = useState('form'); // form, processing, success
     const [selectedMethodId, setSelectedMethodId] = useState(paymentMethods.find(m => m.isDefault)?.id || null);
     const [amount, setAmount] = useState('');
 
@@ -24,24 +22,21 @@ export const TopUpFlow = ({ paymentMethods, onSuccess, onCancel }) => {
         }
 
         setStep('processing');
-
-        // Construimos el DTO que el backend espera
         const topUpData = {
             paymentMethodId: selectedMethodId,
             amount: numericAmount,
         };
 
-        reloadWallet(topUpData)
+        PaymentServices.reloadWallet(topUpData)
             .then(response => {
-                // El backend devuelve el DTO de la transacción, lo mostramos en consola
                 console.log("Transacción de recarga exitosa:", response.data);
                 toast.success('¡Recarga realizada con éxito!');
-                onSuccess(); // Avisa al Dashboard que la recarga fue exitosa para que refresque los datos
+                onSuccess();
                 setStep('success');
             })
             .catch(error => {
                 toast.error(error.response?.data?.message || 'La recarga no pudo ser procesada.');
-                setStep('form'); // Vuelve al formulario en caso de error
+                setStep('form');
             });
     };
 

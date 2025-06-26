@@ -1,8 +1,7 @@
-// src/components/dashboard/SendMoneyFlow.jsx
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { toast } from 'react-hot-toast';
-import { sendMoney } from '../../api/walletService.js';
+import { UserServices } from '../../api/userServices.js';
 
 export const SendMoneyFlow = ({ onTransferSuccess, onCancel }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -22,15 +21,14 @@ export const SendMoneyFlow = ({ onTransferSuccess, onCancel }) => {
             description: description,
         };
 
-        sendMoney(transferData)
+        UserServices.sendMoney(transferData)
             .then(response => {
                 console.log("Transferencia exitosa:", response.data);
                 toast.success('¡Transferencia realizada con éxito!');
-                setIsSuccess(true); // Mostramos la pantalla de éxito
+                setIsSuccess(true);
                 onTransferSuccess();
             })
             .catch(error => {
-                // Ahora los errores vienen directamente del backend real
                 toast.error(error.response?.data?.message || 'No se pudo realizar la transferencia.');
             })
             .finally(() => {
@@ -38,7 +36,6 @@ export const SendMoneyFlow = ({ onTransferSuccess, onCancel }) => {
             });
     };
     
-    // Si la transferencia fue exitosa, mostramos un mensaje final
     if (isSuccess) {
         return (
             <div className="text-center space-y-4">
@@ -48,8 +45,6 @@ export const SendMoneyFlow = ({ onTransferSuccess, onCancel }) => {
             </div>
         );
     }
-    
-    // El formulario principal
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <h2 className="text-xl font-bold text-center mb-6">Enviar Dinero</h2>

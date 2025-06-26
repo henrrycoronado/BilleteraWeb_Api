@@ -1,26 +1,24 @@
-// src/components/auth/UserInfoForm.jsx
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 
 export const UserInfoForm = ({ onSubmit, onSwitchToLogin, isLoading }) => {
     const [formData, setFormData] = useState({
-        fullName: '',
+        name: '',       
+        lastName: '',   
         phoneNumber: '',
         email: '',
     });
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        // El DTO pide FullName, pero podemos unirlo antes de enviarlo
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         const { name, lastName, phoneNumber, email } = formData;
-        // Unimos nombre y apellido para que coincida con el DTO
-        const fullName = `${name} ${lastName}`.trim();
-        onSubmit({ fullName, phoneNumber, email });
+        const fullName = `${name}-${lastName}`.trim(); 
+        onSubmit({ fullName, phoneNumber, email }); 
     };
 
     return (

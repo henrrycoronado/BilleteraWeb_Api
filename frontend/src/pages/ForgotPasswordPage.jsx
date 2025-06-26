@@ -1,8 +1,7 @@
-// src/pages/ForgotPasswordPage.jsx
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { toast, Toaster } from 'react-hot-toast';
-import { requestPinRecoveryOtp, resetPin } from '../api/authService.js';
+import { AuthServices } from '../api/authService.js';
 import { RequestResetCodeForm } from '../components/auth/RequestResetCodeForm';
 import { VerifyResetCodeForm } from '../components/auth/VerifyResetCodeForm';
 import { ResetPinForm } from '../components/auth/ResetPinForm';
@@ -17,10 +16,9 @@ export const ForgotPasswordPage = ({ showLogin }) => {
 
     const handleRequestSubmit = (phoneNumber) => {
         setIsLoading(true);
-        requestPinRecoveryOtp(phoneNumber)
+        AuthServices.requestPinRecoveryOtp(phoneNumber)
             .then(response => {
                 const otp = response.data.otpCode;
-                // Vistazo aquí: Mostramos el OTP para pruebas
                 console.log("--- CÓDIGO DE PRUEBA (OTP RECUPERACIÓN) ---:", otp);
                 toast.success(`Código de prueba enviado: ${otp}`);
                 
@@ -42,7 +40,7 @@ export const ForgotPasswordPage = ({ showLogin }) => {
         setIsLoading(true);
         const finalData = { ...recoveryData, newPin };
         
-        resetPin(finalData)
+        AuthServices.resetPin(finalData)
             .then(response => {
                 toast.success(response.data.message || '¡PIN restablecido con éxito!');
                 setTimeout(showLogin, 2000);

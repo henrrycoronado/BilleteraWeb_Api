@@ -1,19 +1,16 @@
-// src/components/dashboard/TransactionHistory.jsx
 import PropTypes from 'prop-types';
 import { TransactionItem } from './TransactionItem';
 
-const HistorySkeleton = () => { /* ... (código sin cambios) ... */ };
 
-export const TransactionHistory = ({ isLoading, error, transactions, onRetry, currentWallet }) => {
+export const TransactionHistory = ({ isLoading, error, transactions, currentWallet }) => {
     const renderContent = () => {
-        if (isLoading) return <HistorySkeleton />;
-        if (error) { /* ... (código sin cambios) ... */ }
-        if (transactions.length === 0) { /* ... (código sin cambios) ... */ }
+        if (isLoading) return;
+        if (error) { console.log(error); }
+        if (transactions.length === 0) {  }
         
         return (
             <ul className="space-y-3">
                 {transactions.map(tx => (
-                    // Vistazo aquí: Pasamos la prop 'currentWallet' al item
                     <TransactionItem key={tx.id} transaction={tx} currentWallet={currentWallet} />
                 ))}
             </ul>
@@ -33,5 +30,5 @@ TransactionHistory.propTypes = {
     error: PropTypes.object,
     transactions: PropTypes.array.isRequired,
     onRetry: PropTypes.func.isRequired,
-    currentWallet: PropTypes.object, // Nueva prop
+    currentWallet: PropTypes.object,
 };

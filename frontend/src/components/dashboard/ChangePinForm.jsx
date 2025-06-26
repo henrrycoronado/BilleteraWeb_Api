@@ -1,7 +1,6 @@
-// src/components/dashboard/ChangePinForm.jsx
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { changePin } from '../../api/authService';
+import { UserServices } from '../../api/userServices';
 import { LockKeyhole } from 'lucide-react';
 
 export const ChangePinForm = () => {
@@ -32,11 +31,13 @@ export const ChangePinForm = () => {
 
         setIsLoading(true);
         toast.dismiss();
-
-        changePin(pins.currentPin, pins.newPin)
+        const input = {
+            currentPin: pins.currentPin,
+            newPin: pins.newPin,
+        }
+        UserServices.changePin(input)
             .then(response => {
                 toast.success(response.data.message || '¡PIN actualizado con éxito!');
-                // Limpiamos los campos del formulario tras el éxito
                 setPins({ currentPin: '', newPin: '', confirmNewPin: '' });
             })
             .catch(error => {

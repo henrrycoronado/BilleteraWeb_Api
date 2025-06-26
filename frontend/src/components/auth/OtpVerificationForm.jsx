@@ -1,13 +1,22 @@
-
+import { AuthServices } from '../../api/authService'
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 
-export const OtpVerificationForm = ({ onSubmit, isLoading }) => {
+export const OtpVerificationForm = ({ onSubmit, isLoading, phoneNumberI}) => {
   const [otp, setOtp] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit(otp);
+    const request = {
+      phoneNumber: phoneNumberI,
+      otpCode: otp
+    }
+    const response = await AuthServices.ValidateOtp(request)
+    if(response && response.data == true){
+      onSubmit(otp);
+      return;
+    }
+    window.alert("otp no valido, revisa tu bandeja de entrada.");
   };
 
   return (

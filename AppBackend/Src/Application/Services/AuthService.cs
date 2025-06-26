@@ -20,12 +20,19 @@ public class AuthService : IAuthService
         _tokenGenerator = tokenGenerator;
     }
 
-    public async Task<string> RequestRegistrationOtpAsync(string phoneNumber)
+    public async Task<string> RequestRegistrationOtpAsync(string phoneNumber, string? email)
     {
         var existingUser = await _unitOfWork.Users.GetByPhoneNumberAsync(phoneNumber);
         if (existingUser != null)
         {
             throw new Exception($"El número de teléfono '{phoneNumber}' ya está en uso.");
+        }
+        if(email != null || email != ""){
+            var existingUserEmail = await _unitOfWork.Users.GetByEmailAsync(email);
+            if (existingUserEmail != null)
+            {
+                throw new Exception("Este email ya esta registrado en el sistema.");
+            }
         }
 
         var otpCode = OtpGenerator.Generate();
@@ -40,6 +47,16 @@ public class AuthService : IAuthService
         await _unitOfWork.Otps.AddAsync(otpEntity);
         await _unitOfWork.SaveChangesAsync();
         return otpCode;
+    }
+
+    public async Task<bool> OtpValidateAsync(string phoneNumber, string otp){
+        var otpHash = _passwordHasher.Hash(otp);
+        var otpEntity = await _unitOfWork.Otps.FindValidOtpAsync(phoneNumber, OtpType.REGISTRATION);
+        if (otpEntity == null || !_passwordHasher.Verify(otp, otpEntity.CodeHash))
+        {
+            return false;
+        }
+        return true;
     }
 
     public async Task<UserDto> RegisterUserAsync(string fullName, string phoneNumber, string? email, string pin, string otpCode)
@@ -59,6 +76,13 @@ public class AuthService : IAuthService
         if (existingUser != null)
         {
             throw new Exception("Este número de teléfono ya esta registrado en el sistema.");
+        }
+        if(email != null || email != ""){
+            var existingUserEmail = await _unitOfWork.Users.GetByEmailAsync(email);
+            if (existingUserEmail != null)
+            {
+                throw new Exception("Este email ya esta registrado en el sistema.");
+            }
         }
 
         var pinHash = _passwordHasher.Hash(pin);

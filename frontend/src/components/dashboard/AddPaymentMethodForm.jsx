@@ -1,13 +1,11 @@
-// src/components/dashboard/AddPaymentMethodForm.jsx
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { toast } from 'react-hot-toast';
-import { addPaymentMethod } from '../../api/walletService.js';
+import { PaymentServices } from '../../api/paymentService.js';
 
 export const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [type, setType] = useState('0'); // '0' para Tarjeta de Crédito por defecto
-    // Vistazo aquí: 1. Nuevo estado para guardar los últimos 4 dígitos
+    const [type, setType] = useState('0');
     const [last4, setLast4] = useState(''); 
 
     const getPaymentTokenFromGateway = async (last4Digits) => {
@@ -16,7 +14,6 @@ export const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
         
         return {
             token: 'tok_' + Math.random().toString(36).substring(2),
-            // Usamos los dígitos ingresados para el identificador
             maskedIdentifier: `•••• ${last4Digits}`, 
             provider: 'Visa',
         };
@@ -28,7 +25,6 @@ export const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
         toast.dismiss();
 
         try {
-            // Vistazo aquí: 3. Pasamos los 4 dígitos a nuestra simulación
             const gatewayResponse = await getPaymentTokenFromGateway(last4);
             
             const methodData = {
@@ -38,7 +34,7 @@ export const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
                 maskedIdentifier: gatewayResponse.maskedIdentifier,
             };
 
-            const response = await addPaymentMethod(methodData);
+            const response = await PaymentServices.addPaymentMethod(methodData);
             
             toast.success('¡Método de pago añadido con éxito!');
             onSuccess(response.data);
@@ -75,7 +71,6 @@ export const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
                 </div>
             </div>
 
-            {/* Vistazo aquí: 2. El nuevo campo de input que hemos añadido */}
             <div>
                 <label htmlFor="last4" className="text-sm font-medium text-gray-700">Últimos 4 dígitos</label>
                 <input

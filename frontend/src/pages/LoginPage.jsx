@@ -1,9 +1,8 @@
-// src/pages/LoginPage.jsx
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { toast, Toaster } from 'react-hot-toast';
 
-import { login } from '../api/authService.js';
+import { AuthServices } from '../api/authService.js';
 import { LoginForm } from '../components/auth/LoginForm';
 
 export const LoginPage = ({ onLoginSuccess, showWelcome, showForgotPassword }) => {
@@ -17,32 +16,24 @@ export const LoginPage = ({ onLoginSuccess, showWelcome, showForgotPassword }) =
 
         setIsLoading(true);
         toast.dismiss();
-
-        login(phone, pin)
+        const input = {
+            phoneNumber: phone.trim(),
+            pin: pin.trim(),
+        }
+        AuthServices.login(input)
             .then(response => {
-                // La llamada fue exitosa (status 2xx)
                 console.log("Respuesta del backend:", response.data);
-                
-                // Extraemos el token de la respuesta, según tu controller
                 const token = response.data.token;
-                
-                // Guardamos el token en el localStorage para futuras peticiones
                 localStorage.setItem('authToken', token);
-                
                 toast.success(response.data.message || '¡Bienvenido de nuevo!');
-                
-                // Avisamos a App.jsx que el login fue exitoso
                 onLoginSuccess(token);
             })
             .catch(error => {
-                // La llamada falló. El error puede ser de red o del backend (4xx, 5xx)
                 console.error("Error en el login:", error.response);
-                // Mostramos el mensaje de error que viene del backend
                 const errorMessage = error.response?.data?.message || 'Ocurrió un error. Inténtalo de nuevo.';
                 toast.error(errorMessage);
             })
             .finally(() => {
-                // Esto se ejecuta siempre, tanto si hubo éxito como si hubo error
                 setIsLoading(false);
             });
     };

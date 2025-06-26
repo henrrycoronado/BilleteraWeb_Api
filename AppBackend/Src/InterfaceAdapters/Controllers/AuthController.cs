@@ -20,8 +20,21 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var otp = await _authService.RequestRegistrationOtpAsync(request.PhoneNumber);
-            return Ok(new { message = "OTP generado para simulación.", otpCode = otp });
+            var otp = await _authService.RequestRegistrationOtpAsync(request.PhoneNumber, request.Email);
+            return Ok(new { message = "OTP generado.", otpCode = otp });
+        }
+        catch (Exception ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+    [HttpPost("validate-otp")]
+    public async Task<IActionResult> OtpValidate([FromBody] RequestOtpValidateDto request)
+    {
+        try
+        {
+            var validate = await _authService.OtpValidateAsync(request.PhoneNumber, request.OtpCode);
+            return Ok(validate);
         }
         catch (Exception ex)
         {
